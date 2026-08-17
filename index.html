@@ -1,0 +1,1490 @@
+<meta charset="utf-8" />
+<title>熊熊甜點小徑</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#170f28" />
+<meta name="description" content="一張要兩道密碼才能打開的像素風生日賀卡。" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="熊熊甜點小徑" />
+<meta property="og:description" content="一封被封起來的信，兩道密碼，還有一隻邊走邊吃甜點的熊。" />
+
+<style>
+  /* ============================================================
+     熊熊甜點小徑 — 像素風互動生日賀卡
+     刻意單一視覺世界（黃昏 → 白天的像素電玩螢幕），
+     所有顏色都明確指定，不跟隨瀏覽器深淺主題。
+     ============================================================ */
+  :root {
+    --ink:        #170f28;
+    --ink-2:      #2c1e46;
+    --ink-3:      #402c62;
+    --ink-4:      #574080;
+    --cream:      #fff4de;
+    --cream-2:    #ecd9b8;
+    --cream-dim:  #b9a489;
+    --butter:     #ffd15c;
+    --candy:      #ff8fb1;
+    --mint:       #7fe3c9;
+    --caramel:    #c98a5b;
+    --u:          5px;        /* 像素字的一格 */
+    --sans: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC",
+            "Hiragino Sans TC", system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+    background: var(--ink);
+    background-image:
+      radial-gradient(circle at 50% 0%, #2a1d47 0%, #170f28 60%, #110b1e 100%);
+    color: var(--cream);
+    font-family: var(--sans);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);   /* auto 欄位會被 canvas 撐大，一定要夾住 */
+    place-items: center;
+    padding: 16px 12px calc(20px + env(safe-area-inset-bottom));
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ---------- 機身 ---------- */
+  .cabinet {
+    width: 100%;
+    min-width: 0;          /* 沒有這行，canvas 的內建 320px 會把版面撐爆手機螢幕 */
+    max-width: 880px;
+    background: var(--ink-2);
+    border: 3px solid var(--ink);
+    box-shadow: 0 10px 0 0 #0d0817, 0 10px 40px rgba(0,0,0,.55);
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    /* 像素缺角，取代圓角 */
+    clip-path: polygon(
+      8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px),
+      calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px), 0 8px);
+  }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    min-width: 0;
+    user-select: none;
+  }
+
+  .eyebrow {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    color: var(--cream-dim);
+  }
+
+  /* 進度：真實狀態，不是裝飾 */
+  .pips { display: flex; gap: 5px; margin-left: auto; align-items: center; }
+  .pip {
+    width: 9px; height: 9px;
+    background: var(--ink-4);
+    box-shadow: inset 0 0 0 2px var(--ink);
+  }
+  .pip.on { background: var(--butter); }
+
+  .sound {
+    appearance: none;
+    border: 2px solid var(--ink);
+    background: var(--ink-3);
+    color: var(--cream);
+    font: inherit;
+    font-size: 13px;
+    line-height: 1;
+    padding: 9px 10px;
+    min-height: 38px;
+    cursor: pointer;
+    touch-action: manipulation;
+    white-space: nowrap;
+  }
+  .sound:hover { background: var(--ink-4); }
+
+  /* ---------- 螢幕 ---------- */
+  .bezel {
+    background: #0e0919;
+    border: 3px solid var(--ink);
+    padding: 9px;
+    min-width: 0;
+    box-shadow: inset 0 3px 14px rgba(0,0,0,.85);
+    display: flex;
+    justify-content: center;
+  }
+  canvas.screen {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    height: auto;
+    aspect-ratio: 320 / 180;   /* JS 會依螢幕比例改寫 */
+    background: #2a1d47;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+
+  /* ---------- 下方面板 ---------- */
+  .console { display: flex; flex-direction: column; gap: 12px; }
+  .panel { display: flex; flex-direction: column; gap: 12px; }
+  .panel[hidden] { display: none; }
+
+  .lede {
+    margin: 0;
+    font-size: clamp(15px, 2.4vw, 19px);
+    font-weight: 800;
+    line-height: 1.55;
+    letter-spacing: .02em;
+    text-wrap: balance;
+    text-shadow: 2px 2px 0 var(--ink);
+  }
+  .sub {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--cream-dim);
+  }
+
+  /* 密碼列 */
+  .code-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  /* 透明的真 input 疊在數字格上面：手機點下去就直接叫出數字鍵盤，
+     不必靠程式 focus（iOS 對程式 focus 很挑） */
+  .code-field { position: relative; display: inline-flex; user-select: none; }
+  .code-field:focus-within { outline: 3px solid var(--mint); outline-offset: 4px; }
+  .code-input {
+    position: absolute;
+    inset: 0;
+    width: 100%; height: 100%;
+    margin: 0; padding: 0; border: 0;
+    background: transparent;
+    color: transparent;
+    caret-color: transparent;
+    font-size: 16px;          /* 小於 16px 時 iOS 會自動放大整頁 */
+    opacity: 0;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .code-input:focus { outline: none; }
+  .slots { display: flex; gap: 8px; }
+  .slot {
+    width: calc(var(--u) * 3 + 22px);
+    height: calc(var(--u) * 5 + 20px);
+    background: #0e0919;
+    border: 2px solid var(--ink);
+    box-shadow: inset 0 2px 8px rgba(0,0,0,.8);
+    display: grid;
+    place-items: center;
+    position: relative;
+  }
+  .slot.active { border-color: var(--butter); }
+  .slot.active::after {
+    content: "";
+    position: absolute;
+    inset: auto 6px 5px 6px;
+    height: 3px;
+    background: var(--butter);
+    animation: blink 1s steps(2, jump-none) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* 手繪 3×5 像素數字 */
+  .pxd {
+    display: grid;
+    grid-template-columns: repeat(3, var(--u));
+    grid-auto-rows: var(--u);
+    gap: 1px;
+  }
+  .pxd i { display: block; }
+  .pxd i.on { background: var(--butter); box-shadow: 1px 1px 0 rgba(0,0,0,.45); }
+
+  .shake { animation: shake .34s steps(3, jump-none) 2; }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    33% { transform: translateX(-6px); }
+    66% { transform: translateX(6px); }
+  }
+
+
+  .msg { margin: 0; font-size: 13px; font-weight: 700; min-height: 1.3em; }
+  .msg.err { color: var(--candy); }
+  .msg.hint { color: var(--butter); }
+
+  /* 賀詞對話框 */
+  .dialog {
+    background: var(--cream);
+    color: var(--ink);
+    border: 3px solid var(--ink);
+    padding: 16px 18px;
+    font-size: clamp(15px, 2.5vw, 20px);
+    font-weight: 800;
+    line-height: 1.7;
+    letter-spacing: .01em;
+    text-wrap: balance;
+    box-shadow: 5px 5px 0 0 rgba(0,0,0,.35);
+    clip-path: polygon(
+      6px 0, calc(100% - 6px) 0, 100% 6px, 100% calc(100% - 6px),
+      calc(100% - 6px) 100%, 6px 100%, 0 calc(100% - 6px), 0 6px);
+    /* 只動 transform，不動 opacity——動畫沒跑時也一定看得見 */
+    animation: pop .28s steps(3, jump-none);
+  }
+  .dialog .who {
+    display: block;
+    font-size: 11px;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: #8a6f4e;
+    margin-bottom: 6px;
+  }
+  @keyframes pop {
+    from { transform: translateY(10px) scaleY(.9); }
+    to   { transform: translateY(0)    scaleY(1); }
+  }
+
+  .big {
+    margin: 0;
+    font-size: clamp(30px, 8vw, 60px);
+    font-weight: 900;
+    letter-spacing: .06em;
+    line-height: 1.1;
+    color: var(--butter);
+    text-shadow: 4px 4px 0 var(--ink), 8px 8px 0 rgba(255,143,177,.5);
+  }
+
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+  .btn {
+    appearance: none;
+    font: inherit;
+    font-weight: 800;
+    font-size: 15px;
+    letter-spacing: .04em;
+    padding: 12px 20px;
+    min-height: 48px;                 /* 手指按得到 */
+    border: 3px solid var(--ink);
+    background: var(--butter);
+    color: var(--ink);
+    cursor: pointer;
+    touch-action: manipulation;
+    user-select: none;
+    box-shadow: 0 5px 0 0 #b8892a;
+    transition: transform .06s steps(2, jump-none),
+                box-shadow .06s steps(2, jump-none);
+  }
+  .btn:hover { background: #ffdc82; }
+  .btn:active { transform: translateY(4px); box-shadow: 0 1px 0 0 #b8892a; }
+  .btn.ghost {
+    background: var(--ink-3);
+    color: var(--cream);
+    box-shadow: 0 5px 0 0 #1d1333;
+  }
+  .btn.ghost:hover { background: var(--ink-4); }
+  .btn:focus-visible, .sound:focus-visible {
+    outline: 3px solid var(--mint);
+    outline-offset: 3px;
+  }
+
+  .foot {
+    font-size: 11px;
+    color: #6f5b93;
+    letter-spacing: .1em;
+    text-align: center;
+  }
+
+  @media (max-width: 560px) {
+    :root { --u: 4px; }
+    .cabinet { padding: 11px; gap: 11px; }
+    .bezel { padding: 6px; }
+    .btn { padding: 11px 16px; font-size: 15px; }
+    .dialog { padding: 13px 14px; }
+    .foot { font-size: 10px; }
+  }
+  @media (max-width: 360px) {
+    :root { --u: 3px; }
+    .slots { gap: 6px; }
+    .btn { padding: 10px 13px; }
+  }
+  /* 橫躺的手機：高度很少但寬度有餘，把螢幕和面板並排，
+     這樣畫面可以吃掉幾乎整個高度，而不是被擠成一條 */
+  @media (orientation: landscape) and (max-height: 520px) {
+    body { padding: 6px 8px; }
+    .cabinet {
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+      grid-template-areas: "top top" "screen console";
+      align-items: start;
+      gap: 8px 12px;
+      padding: 9px;
+    }
+    .topbar  { grid-area: top; }
+    .bezel   { grid-area: screen; padding: 5px; }
+    .console { grid-area: console; }
+    .lede { font-size: 15px; }
+    .dialog { padding: 10px 12px; font-size: 15px; }
+    .btn { min-height: 44px; padding: 9px 14px; }
+    .foot { display: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+  }
+</style>
+
+<div class="cabinet">
+  <div class="topbar">
+    <span class="eyebrow" id="eyebrow">封印 1 / 2</span>
+    <div class="pips" id="pips" aria-hidden="true"></div>
+    <button class="sound" id="soundBtn" type="button" aria-pressed="false">
+      🔇 音效關
+    </button>
+  </div>
+
+  <div class="bezel">
+    <canvas class="screen" id="screen" width="320" height="180"
+            role="img" aria-label="像素風場景：一隻小熊和一封封起來的信"></canvas>
+  </div>
+
+  <div class="console">
+    <!-- 密碼關卡 -->
+    <section class="panel" id="panelGate">
+      <p class="lede" id="gateLede">有一封信被封起來了，需要第一道密碼。</p>
+      <div class="code-row">
+        <div class="code-field" id="codeField">
+          <div class="slots" id="slots" aria-hidden="true"></div>
+          <input class="code-input" id="codeInput" type="text"
+                 inputmode="numeric" pattern="[0-9]*" autocomplete="off"
+                 maxlength="4" aria-label="四位數密碼" />
+        </div>
+        <button class="btn" id="openBtn" type="button">解開</button>
+      </div>
+      <p class="msg" id="gateMsg"></p>
+    </section>
+
+    <!-- 賀詞 -->
+    <section class="panel" id="panelWish" hidden>
+      <div class="dialog" id="wish">
+        <span class="who">熊熊說</span>
+        <span id="wishText"></span>
+      </div>
+      <div class="row">
+        <button class="btn" id="nextBtn" type="button">繼續散步</button>
+        <span class="sub" id="wishCount"></span>
+      </div>
+    </section>
+
+    <!-- 過場（動畫中） -->
+    <section class="panel" id="panelWait" hidden>
+      <p class="lede" id="waitLede">……</p>
+    </section>
+
+    <!-- 結尾 -->
+    <section class="panel" id="panelEnd" hidden>
+      <p class="big">生日快樂</p>
+      <div class="dialog" id="endDialog">
+        <span class="who">最後一句</span>
+        <span id="endText"></span>
+      </div>
+      <div class="row">
+        <button class="btn ghost" id="replayBtn" type="button">再看一次</button>
+      </div>
+    </section>
+  </div>
+
+  <p class="foot">點畫面可以讓熊跳一下</p>
+</div>
+
+<noscript>
+  <p style="text-align:center">這張賀卡需要開啟 JavaScript 才能打開喔。</p>
+</noscript>
+
+<script>
+/* ==================================================================
+   ①  可以改的地方都在這裡
+   ================================================================== */
+const CONFIG = {
+  to: "",                       // 收件人名字，留空就不顯示
+  code1: "0819",
+  code2: "0727",
+  lede1: "有一封信被封起來了，需要第一道密碼。",
+  lede2: "信拿出來了，但卡片還鎖著。第二道密碼。",
+  hint1: "提示：4 位數字，一個屬於你的日期。",
+  hint2: "提示：再一個日期，就能把卡片打開了。",
+  wishes: [
+    { dessert: "donut",
+      text: "甜甜圈中間的洞是留給煩惱的，其他甜的部分都是你的。" },
+    { dessert: "cupcake",
+      text: "願你接下來的每一天，都像剛出爐一樣蓬鬆又柔軟。" },
+    { dessert: "icecream",
+      text: "就算世界有時候很燙，也希望你永遠不要融化。" },
+    { dessert: "pudding",
+      text: "祝你走路都會遇到好事，像布丁一定會遇到焦糖那樣。" },
+    { dessert: "cake",
+      text: "最上面那顆草莓，永遠是你的，沒有人可以跟你搶。" },
+    { dessert: "macaron",
+      text: "又長大一歲了，恭喜你把日子過得這麼好。" }
+  ],
+  ending: "熊熊已經吃飽了，換你把接下來的一年，一口一口吃成甜的。"
+};
+
+/* ==================================================================
+   ②  像素畫核心
+   ================================================================== */
+/* 高度固定 180，寬度會依螢幕比例調整：
+   直式手機拿到比較窄的畫面（像素變大），橫躺時變寬。 */
+let W = 320;
+const H = 180;
+const cv = document.getElementById("screen");
+const ctx = cv.getContext("2d");
+cv.width = W; cv.height = H;
+ctx.imageSmoothingEnabled = false;
+
+const RM = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const spd = RM ? 0.3 : 1;                 // 動畫時間縮放
+
+function px(x, y, w, h, c) {
+  ctx.fillStyle = c;
+  ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+}
+function ell(cx, cy, rx, ry, c) {         // 像素橢圓（整數對齊）
+  ctx.fillStyle = c;
+  cx = Math.round(cx); cy = Math.round(cy);
+  rx = Math.round(rx); ry = Math.round(ry);
+  for (let dy = -ry; dy <= ry; dy++) {
+    const k = 1 - (dy * dy) / ((ry + 0.5) * (ry + 0.5));
+    if (k <= 0) continue;
+    const dx = Math.round((rx + 0.5) * Math.sqrt(k));
+    ctx.fillRect(cx - dx, cy + dy, dx * 2 + 1, 1);
+  }
+}
+const disc = (cx, cy, r, c) => ell(cx, cy, r, r, c);
+function ellO(cx, cy, rx, ry, fill, line) {   // 帶描邊
+  ell(cx, cy, rx + 1, ry + 1, line);
+  ell(cx, cy, rx, ry, fill);
+}
+function tri(x1,y1,x2,y2,x3,y3,c) {
+  ctx.fillStyle = c;
+  ctx.beginPath();
+  ctx.moveTo(Math.round(x1), Math.round(y1));
+  ctx.lineTo(Math.round(x2), Math.round(y2));
+  ctx.lineTo(Math.round(x3), Math.round(y3));
+  ctx.closePath();
+  ctx.fill();
+}
+function box(x, y, w, h, fill, line) {
+  px(x - 1, y - 1, w + 2, h + 2, line);
+  px(x, y, w, h, fill);
+}
+const hx = c => [parseInt(c.slice(1,3),16), parseInt(c.slice(3,5),16), parseInt(c.slice(5,7),16)];
+function mix(a, b, t) {
+  const A = hx(a), B = hx(b);
+  return "rgb(" + Math.round(A[0]+(B[0]-A[0])*t) + "," +
+                  Math.round(A[1]+(B[1]-A[1])*t) + "," +
+                  Math.round(A[2]+(B[2]-A[2])*t) + ")";
+}
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const ease  = t => t < .5 ? 2*t*t : 1 - Math.pow(-2*t+2, 2)/2;
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+
+/* 固定亂數，讓草地細節每次都長在同一個地方 */
+let _seed = 20260819;
+function rnd() { _seed = (_seed * 1103515245 + 12345) & 0x7fffffff; return _seed / 0x7fffffff; }
+
+/* ==================================================================
+   ③  調色盤（黃昏 → 白天）
+   ================================================================== */
+const SKY_DUSK = ["#2a1d47","#3b2758","#5b356e","#8a4577","#c05f7e","#e8846f"];
+const SKY_DAY  = ["#4fa8e0","#63bae8","#7fcbf0","#a0dbf5","#c4e8f8","#e6f6fd"];
+const HILL_FAR   = ["#2c2350","#5fa8b8"];
+const HILL_NEAR  = ["#28324f","#3f8f6a"];
+const GRASS_TOP  = ["#2f5f42","#6cc75c"];
+const GRASS_BOT  = ["#22452f","#48a047"];
+const DIRT       = ["#4a3a30","#c9a173"];
+const DIRT_2     = ["#3a2c25","#a8814f"];
+const CLOUD      = ["#7a5f8e","#ffffff"];
+
+const INK    = "#241528";
+const BEAR   = "#c98a5b";
+const BEAR_D = "#a4693f";
+const BEAR_L = "#f2d3ae";
+const CANDY  = "#ff8fb1";
+const MINT   = "#7fe3c9";
+const BUTTER = "#ffd15c";
+const CREAM  = "#fff4de";
+const BALLOON_COLORS = ["#ff8fb1","#ffd15c","#7fe3c9","#c9a7e8","#ff9e6d","#8fd0ff","#ff6f91"];
+
+/* ==================================================================
+   ④  世界設定
+   ================================================================== */
+const WORLD_W  = 1560;
+const GRASS_Y  = 132;            // 地平線（草地上緣）
+const PATH_Y   = 150;            // 小路
+const PATH_H   = 18;
+const GROUND_Y = 156;            // 熊腳底（踩在小路上）
+const FG_Y     = PATH_Y + PATH_H; // 前景草
+const DESSERT_X = [150, 340, 530, 730, 930, 1120];
+const CAKE_X    = 1330;
+
+/* 這些都跟畫面寬度有關，W 一變就要重算 */
+let CAM_MAX, CAM_LEAD, BALLOON_SPAN, BALLOON_N, ENV_X, GATE_BEAR_X, SKY_OBJ_X;
+function applyMetrics() {
+  CAM_MAX      = WORLD_W - W;
+  CAM_LEAD     = Math.round(W * 0.37);          // 熊在畫面上的位置
+  BALLOON_SPAN = W + CAM_MAX * 0.5 + 40;        // 氣球視差 0.5，只有這段會被看到
+  BALLOON_N    = Math.min(120, Math.round(BALLOON_SPAN / W * 20));  // 每個畫面固定約 20 顆
+  ENV_X        = Math.round(W * 0.60);          // 信封／卡片
+  GATE_BEAR_X  = Math.round(W * 0.20);          // 解謎時熊站的位置
+  SKY_OBJ_X    = W - 54;                        // 太陽／月亮
+}
+applyMetrics();
+
+const state = {
+  scene: "gate1",     // gate1 | letterOut | gate2 | opening | walk | finale
+  mode:  "idle",      // walking | eating | wish | toCake | celebrate
+  t: 0, at: 0,        // at = 這個動畫階段已經過的毫秒
+  day: 0,             // 0 = 黃昏, 1 = 白天
+  idx: 0,             // 下一個要吃的甜點
+  camX: 0,
+  flash: 0,
+  gate: 1,
+  tries: 0
+};
+
+const bear = { x: 60, phase: 0, hop: 0, mood: "idle", blinkAt: 0 };
+const desserts = DESSERT_X.map((x, i) => ({
+  x, kind: CONFIG.wishes[i] ? CONFIG.wishes[i].dessert : "donut",
+  bite: 0, gone: false
+}));
+let balloons = [], clouds = [], confetti = [], crumbs = [], fireworks = [];
+let deco = [];
+
+function initWorld() {
+  _seed = 20260819;
+  clouds = [];
+  for (let i = 0; i < 7; i++)
+    clouds.push({ x: rnd() * (W + 120), y: 14 + rnd() * 46, s: 1 + Math.round(rnd() * 1.6) });
+
+  balloons = [];          // 氣球要等卡片打開才放出來
+  deco = [];
+  for (let i = 0; i < 190; i++) {
+    const x = rnd() * WORLD_W;
+    const r = rnd();
+    deco.push({
+      x,
+      kind: r < .34 ? "tuft" : r < .58 ? "flower" : r < .8 ? "pebble" : "tuft2",
+      c: BALLOON_COLORS[Math.floor(rnd() * BALLOON_COLORS.length)],
+      y: rnd()
+    });
+  }
+  desserts.forEach(d => { d.bite = 0; d.gone = false; });
+  confetti = []; crumbs = []; fireworks = [];
+}
+
+function refillBalloons() {
+  balloons = [];
+  for (let i = 0; i < BALLOON_N; i++) addBalloon(true);
+}
+
+function addBalloon(spread, fast) {
+  balloons.push({
+    x: Math.random() * BALLOON_SPAN - 20,
+    y: spread ? -10 + Math.random() * 175 : H + 14 + Math.random() * 90,
+    r: 4 + Math.round(Math.random() * 3),
+    c: BALLOON_COLORS[Math.floor(Math.random() * BALLOON_COLORS.length)],
+    v: fast ? 52 + Math.random() * 46 : 6 + Math.random() * 11,
+    ph: Math.random() * 6.28
+  });
+}
+
+/* ==================================================================
+   ⑤  背景
+   ================================================================== */
+function drawSky() {
+  const d = state.day;
+  const bandH = Math.ceil(H / SKY_DUSK.length);
+  for (let i = 0; i < SKY_DUSK.length; i++)
+    px(0, i * bandH, W, bandH + 1, mix(SKY_DUSK[i], SKY_DAY[i], d));
+
+  // 星星 + 月亮（黃昏才有）
+  if (d < 0.98) {
+    ctx.globalAlpha = 1 - d;
+    _seed = 777;
+    for (let i = 0; i < 34; i++) {
+      const sx = Math.round(rnd() * W), sy = Math.round(rnd() * 78);
+      const tw = 0.55 + 0.45 * Math.sin(state.t / 480 + i);
+      ctx.globalAlpha = (1 - d) * tw;
+      px(sx, sy, 1, 1, "#fff4de");
+    }
+    ctx.globalAlpha = 1 - d;
+    disc(SKY_OBJ_X + 2, 30, 9, "#fff0c9");          // 月
+    disc(SKY_OBJ_X + 7, 26, 8, mix(SKY_DUSK[1], SKY_DAY[1], d));
+    ctx.globalAlpha = 1;
+  }
+
+  // 太陽（白天才有）
+  if (d > 0.02) {
+    ctx.globalAlpha = d;
+    const sy = 34;
+    disc(SKY_OBJ_X, sy, 12, "#fff3b0");
+    disc(SKY_OBJ_X, sy, 9, "#ffd15c");
+    for (let a = 0; a < 8; a++) {
+      const an = a * Math.PI / 4 + state.t / 4000;
+      px(SKY_OBJ_X + Math.cos(an) * 17, sy + Math.sin(an) * 17, 2, 2, "#fff3b0");
+    }
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawClouds() {
+  const c = mix(CLOUD[0], CLOUD[1], state.day);
+  const span = W + 120;
+  clouds.forEach(cl => {
+    let x = ((cl.x - state.camX * 0.22) % span + span) % span - 60;
+    const s = cl.s;
+    ell(x, cl.y, 9 * s, 4 * s, c);
+    ell(x - 7 * s, cl.y + 2, 6 * s, 3 * s, c);
+    ell(x + 8 * s, cl.y + 2, 5 * s, 3 * s, c);
+    px(x - 13 * s, cl.y + 2, 27 * s, 3 * s, c);
+  });
+}
+
+function drawBalloons(dt) {
+  balloons.forEach(b => {
+    b.y -= b.v * dt / 1000 * (RM ? .4 : 1);
+    if (b.y < -30) { b.y = H + 14 + Math.random() * 60; b.x = Math.random() * BALLOON_SPAN - 20; }
+    const x = Math.round(b.x - state.camX * 0.5 + Math.sin(state.t / 900 + b.ph) * 4);
+    if (x < -20 || x > W + 20) return;
+    const y = Math.round(b.y);
+    // 線
+    for (let i = 0; i < 11; i++)
+      px(x + Math.round(Math.sin(i / 3 + b.ph) * 1.4), y + b.r + 2 + i, 1, 1, "#5c4a72");
+    ellO(x, y, b.r, b.r + 1, b.c, INK);
+    px(x - 1, y + b.r + 1, 3, 2, INK);
+    px(x - b.r + 2, y - b.r + 1, 2, 2, "rgba(255,255,255,.6)");   // 高光
+  });
+}
+
+function drawHills() {
+  const far  = mix(HILL_FAR[0],  HILL_FAR[1],  state.day);
+  const near = mix(HILL_NEAR[0], HILL_NEAR[1], state.day);
+  const spanF = W + 200;
+  for (let i = 0; i < 4; i++) {
+    let x = ((i * 110 + 30 - state.camX * 0.3) % spanF + spanF) % spanF - 100;
+    ell(x, GRASS_Y + 6, 66, 26, far);
+  }
+  const spanN = W + 160;
+  for (let i = 0; i < 5; i++) {
+    let x = ((i * 92 - state.camX * 0.55) % spanN + spanN) % spanN - 80;
+    ell(x, GRASS_Y + 10, 48, 20, near);
+  }
+}
+
+function drawGround() {
+  const gt = mix(GRASS_TOP[0], GRASS_TOP[1], state.day);
+  const gb = mix(GRASS_BOT[0], GRASS_BOT[1], state.day);
+  const d1 = mix(DIRT[0], DIRT[1], state.day);
+  const d2 = mix(DIRT_2[0], DIRT_2[1], state.day);
+  const fg = mix("#1d4530", "#3f8f43", state.day);
+
+  px(0, GRASS_Y, W, 4, gt);                 // 地平線亮邊
+  px(0, GRASS_Y + 4, W, PATH_Y - GRASS_Y, gb);
+  px(0, PATH_Y, W, PATH_H, d1);             // 小路
+  px(0, PATH_Y, W, 1, d2);
+  px(0, FG_Y - 1, W, 1, d2);
+  px(0, FG_Y, W, H - FG_Y, fg);             // 前景草（製造景深）
+
+  // 草叢、花、石頭
+  deco.forEach(o => {
+    const x = Math.round(o.x - state.camX);
+    if (x < -8 || x > W + 8) return;
+    if (o.kind === "tuft") {
+      px(x, GRASS_Y - 2, 1, 3, gt); px(x + 1, GRASS_Y - 3, 1, 4, gt); px(x + 2, GRASS_Y - 1, 1, 2, gt);
+    } else if (o.kind === "tuft2") {
+      px(x, GRASS_Y + 7 + Math.round(o.y * 9), 3, 1, gt);
+    } else if (o.kind === "flower") {
+      const fy = GRASS_Y + 3 + Math.round(o.y * 9);
+      px(x + 1, fy + 2, 1, 4, gt);
+      px(x + 1, fy, 1, 1, o.c); px(x, fy + 1, 3, 1, o.c); px(x + 1, fy + 2, 1, 1, o.c);
+      px(x + 1, fy + 1, 1, 1, CREAM);
+    } else {
+      px(x, PATH_Y + 4 + Math.round(o.y * (PATH_H - 7)), 2, 1, d2);
+    }
+  });
+
+  // 前景草的葉尖
+  deco.forEach(o => {
+    if (o.kind !== "tuft") return;
+    const x = Math.round(o.x * 1.4 - state.camX * 1.35);
+    if (x < -6 || x > W + 6) return;
+    px(x, FG_Y - 3, 1, 4, fg); px(x + 1, FG_Y - 5, 1, 6, fg); px(x + 2, FG_Y - 2, 1, 3, fg);
+  });
+}
+
+/* ==================================================================
+   ⑥  熊
+   ================================================================== */
+function drawBear(bx, by, opts) {
+  opts = opts || {};
+  const walk = opts.walk || 0;             // 走路相位
+  const mood = opts.mood || "idle";        // idle | eat | happy | look
+  const s = Math.sin(walk);
+  const bob = Math.round(Math.abs(s) * 1.5);
+  by = Math.round(by - (opts.lift || 0));
+
+  const cx = Math.round(bx);
+  const bodyY = by - 13 - bob;
+
+  // 影子
+  ctx.globalAlpha = .22;
+  ell(cx, by + 1, 11, 2, "#000");
+  ctx.globalAlpha = 1;
+
+  // 腿
+  const l1 = Math.round(s * 3.2), l2 = Math.round(-s * 3.2);
+  box(cx - 6 + l1, by - 7, 5, 7, BEAR_D, INK);
+  box(cx + 2 + l2, by - 7, 5, 7, BEAR, INK);
+
+  // 身體
+  ellO(cx, bodyY, 9, 8, BEAR, INK);
+  ell(cx, bodyY + 2, 6, 5, BEAR_L);
+
+  // 手
+  const a1 = Math.round(-s * 2.6);
+  if (mood === "happy") {
+    ellO(cx - 10, bodyY - 8, 3, 3, BEAR_D, INK);
+    ellO(cx + 10, bodyY - 8, 3, 3, BEAR_D, INK);
+  } else if (mood === "eat") {
+    ellO(cx + 8, bodyY - 3, 3, 3, BEAR_D, INK);
+    ellO(cx - 9, bodyY + a1, 3, 3, BEAR_D, INK);
+  } else {
+    ellO(cx - 9, bodyY + a1, 3, 3, BEAR_D, INK);
+    ellO(cx + 9, bodyY - a1, 3, 3, BEAR_D, INK);
+  }
+
+  // 頭
+  const hy = bodyY - 12;
+  ellO(cx - 7, hy - 5, 4, 4, BEAR_D, INK);       // 耳
+  ellO(cx + 7, hy - 5, 4, 4, BEAR_D, INK);
+  disc(cx - 7, hy - 5, 2, CANDY);
+  disc(cx + 7, hy - 5, 2, CANDY);
+  ellO(cx, hy, 9, 8, BEAR, INK);
+
+  // 派對帽
+  tri(cx - 4, hy - 8, cx + 5, hy - 8, cx + 1, hy - 20, INK);
+  tri(cx - 3, hy - 8, cx + 4, hy - 8, cx + 1, hy - 19, CANDY);
+  px(cx - 2, hy - 13, 5, 1, BUTTER);
+  px(cx - 1, hy - 16, 3, 1, BUTTER);
+  disc(cx + 1, hy - 20, 2, BUTTER);
+
+  // 口鼻
+  ell(cx + 1, hy + 3, 5, 4, BEAR_L);
+  px(cx, hy + 1, 3, 2, "#4a2f22");
+
+  // 眼睛（會眨）
+  const blink = (state.t - bear.blinkAt) % 3600 < 130;
+  if (blink) { px(cx - 6, hy - 1, 3, 1, INK); px(cx + 4, hy - 1, 3, 1, INK); }
+  else {
+    px(cx - 6, hy - 2, 2, 3, INK); px(cx + 4, hy - 2, 2, 3, INK);
+    px(cx - 6, hy - 2, 1, 1, CREAM); px(cx + 4, hy - 2, 1, 1, CREAM);
+  }
+  px(cx - 9, hy + 2, 2, 1, CANDY);   // 腮紅
+  px(cx + 8, hy + 2, 2, 1, CANDY);
+
+  // 嘴
+  if (mood === "eat") {
+    const chomp = Math.sin(state.t / 70) > 0 ? 3 : 1;
+    ell(cx + 1, hy + 5, 2, chomp, "#7a3b3b");
+  } else if (mood === "happy") {
+    px(cx, hy + 5, 3, 1, INK); px(cx - 1, hy + 4, 1, 1, INK); px(cx + 3, hy + 4, 1, 1, INK);
+  } else {
+    px(cx, hy + 5, 3, 1, "#6b4632");
+  }
+}
+
+/* ==================================================================
+   ⑦  甜點
+   ================================================================== */
+function drawDessert(kind, x, by) {
+  x = Math.round(x); by = Math.round(by);
+  if (kind === "donut") {
+    ellO(x, by - 7, 7, 6, "#e0a86a", INK);
+    ell(x, by - 9, 7, 4, "#ff9fbd");
+    px(x - 6, by - 10, 12, 1, "#ffc2d8");
+    ell(x, by - 7, 2, 2, "#8a5a3a");
+    px(x - 4, by - 11, 1, 1, MINT); px(x + 3, by - 10, 1, 1, BUTTER);
+    px(x - 1, by - 12, 1, 1, "#8fd0ff"); px(x + 5, by - 8, 1, 1, MINT);
+  } else if (kind === "cupcake") {
+    px(x - 6, by - 7, 12, 8, INK);
+    px(x - 5, by - 6, 10, 7, "#e8a33f");
+    px(x - 3, by - 6, 1, 7, "#c9822a"); px(x + 1, by - 6, 1, 7, "#c9822a");
+    ellO(x, by - 10, 7, 5, "#ff9fbd", INK);
+    ell(x, by - 13, 5, 3, "#ffc2d8");
+    ell(x, by - 15, 3, 2, "#ff9fbd");
+    disc(x, by - 18, 2, "#e04a5f");
+    px(x, by - 20, 1, 2, "#4a8f3a");
+  } else if (kind === "icecream") {
+    tri(x - 6, by - 9, x + 6, by - 9, x, by + 1, INK);
+    tri(x - 5, by - 9, x + 5, by - 9, x, by, "#d79a52");
+    px(x - 3, by - 6, 1, 1, "#b57a38"); px(x + 2, by - 4, 1, 1, "#b57a38");
+    ellO(x - 2, by - 12, 5, 4, MINT, INK);
+    ellO(x + 3, by - 13, 5, 4, "#ffc2d8", INK);
+    ellO(x, by - 17, 5, 4, "#fff0b0", INK);
+    disc(x, by - 21, 2, "#e04a5f");
+  } else if (kind === "pudding") {
+    tri(x - 7, by, x + 7, by, x + 5, by - 11, INK);
+    px(x - 7, by - 11, 14, 12, INK);
+    px(x - 6, by - 10, 12, 10, "#f6d98a");
+    px(x - 5, by - 11, 10, 3, "#b06a2c");
+    px(x - 5, by - 8, 2, 3, "#b06a2c"); px(x + 2, by - 8, 2, 2, "#b06a2c");
+    px(x - 4, by - 6, 3, 2, "#fbe9b8");
+    disc(x, by - 14, 2, "#e04a5f");
+  } else if (kind === "cake") {
+    tri(x - 8, by, x + 8, by, x + 8, by - 14, INK);
+    tri(x - 7, by, x + 7, by, x + 7, by - 12, CREAM);
+    px(x - 2, by - 5, 9, 2, "#ff8fb1");
+    px(x + 1, by - 9, 6, 2, "#ff8fb1");
+    px(x - 6, by - 2, 13, 1, "#e8cfa8");
+    disc(x + 4, by - 16, 3, "#e04a5f");
+    px(x + 4, by - 19, 1, 2, "#4a8f3a");
+    px(x + 3, by - 17, 1, 1, CREAM);
+  } else {  // macaron
+    ellO(x, by - 4, 7, 4, "#c9a7e8", INK);
+    ellO(x, by - 11, 7, 4, "#c9a7e8", INK);
+    px(x - 6, by - 8, 13, 3, INK);
+    px(x - 6, by - 8, 13, 2, "#fff0b0");
+    px(x - 5, by - 13, 6, 1, "#e0c9f5");
+  }
+}
+
+/* 咬痕：用 even-odd 裁切，從熊那一側挖掉一個圓 */
+function drawDessertBitten(d, sx) {
+  if (d.gone) return;
+  if (d.bite <= 0) { drawDessert(d.kind, sx, GROUND_Y + 1); return; }
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(sx - 24, GROUND_Y - 34, 48, 44);
+  ctx.arc(sx - 9, GROUND_Y - 9, 2 + d.bite * 20, 0, Math.PI * 2);
+  ctx.clip("evenodd");
+  drawDessert(d.kind, sx, GROUND_Y + 1);
+  ctx.restore();
+}
+
+function drawBigCake(x, by) {
+  x = Math.round(x); by = Math.round(by);
+  ctx.globalAlpha = .22; ell(x, by + 1, 22, 3, "#000"); ctx.globalAlpha = 1;
+  px(x - 20, by - 12, 40, 12, INK); px(x - 19, by - 11, 38, 11, "#f6dcb0");
+  px(x - 19, by - 11, 38, 2, "#ff8fb1");
+  px(x - 15, by - 24, 30, 12, INK); px(x - 14, by - 23, 28, 11, CREAM);
+  px(x - 14, by - 23, 28, 2, "#ffc2d8");
+  px(x - 10, by - 34, 20, 10, INK); px(x - 9, by - 33, 18, 9, "#f6dcb0");
+  px(x - 9, by - 33, 18, 2, MINT);
+  for (let i = -1; i <= 1; i++) {
+    const cxp = x + i * 6;
+    px(cxp, by - 41, 2, 8, "#ff8fb1");
+    const f = Math.sin(state.t / 130 + i * 2) > 0 ? 0 : 1;
+    px(cxp, by - 45 - f, 2, 3, BUTTER);
+    px(cxp, by - 46 - f, 2, 1, "#fff0b0");
+    ctx.globalAlpha = .3; disc(cxp + 1, by - 44 - f, 4, BUTTER); ctx.globalAlpha = 1;
+  }
+  for (let i = 0; i < 5; i++) disc(x - 16 + i * 8, by - 13, 2, "#e04a5f");
+}
+
+/* ==================================================================
+   ⑧  信封 / 卡片
+   ================================================================== */
+/* layer: "back" = 紙身＋內襯＋掀起的封口（畫在卡片後面）
+          "front" = 前口袋＋摺線＋郵票（畫在卡片前面，卡片才像插在裡面）
+          "all"   = 信封關著的樣子                                   */
+function drawEnvelope(cx, cy, flap, sealOn, layer) {
+  layer = layer || "all";
+  const w = 104, h = 66;
+  const x = Math.round(cx - w / 2), y = Math.round(cy - h / 2);
+  const pocket = y + 26;
+
+  if (layer !== "front") {
+    box(x, y, w, h, "#fff4de", INK);
+    if (flap > 0.05) px(x + 1, y + 1, w - 2, 26, "#8f6f9c");   // 內襯
+  }
+
+  if (layer !== "back") {
+    px(x - 1, pocket - 1, w + 2, y + h - pocket + 2, INK);      // 前口袋
+    px(x, pocket, w, y + h - pocket, "#f9ebcc");
+    px(x, y + h - 3, w, 3, "#e8d3ae");
+    ctx.strokeStyle = "#e0c9a4"; ctx.lineWidth = 1;             // 摺線
+    ctx.beginPath();
+    ctx.moveTo(x + .5, y + h - .5); ctx.lineTo(cx, pocket + 15);
+    ctx.lineTo(x + w - .5, y + h - .5); ctx.stroke();
+    // 郵票：小熊頭
+    px(x + w - 22, y + h - 22, 16, 16, "#f2dfba");
+    px(x + w - 21, y + h - 21, 14, 14, "#ffd7e6");
+    const sx = x + w - 14, sy = y + h - 14;
+    disc(sx - 4, sy - 4, 2, BEAR_D); disc(sx + 4, sy - 4, 2, BEAR_D);
+    disc(sx, sy, 5, BEAR);
+    px(sx - 2, sy - 1, 1, 1, INK); px(sx + 2, sy - 1, 1, 1, INK);
+    px(sx, sy + 2, 2, 1, "#4a2f22");
+  }
+
+  if (layer !== "front") {
+    const apexY = y + h * 0.62 - flap * (h * 0.62 + 30);        // 封口
+    tri(x, y, x + w, y, cx, apexY, INK);
+    tri(x + 1, y + 1, x + w - 1, y + 1, cx, apexY - 1.5, flap > .5 ? "#e8d3ae" : "#f5e3c0");
+  }
+
+  if (sealOn && layer !== "back") {
+    disc(cx, y + h * 0.56, 7, "#d94f76");
+    disc(cx, y + h * 0.56, 5, CANDY);
+    const hxp = cx - 2, hyp = y + h * 0.56 - 2;                 // 愛心
+    px(hxp, hyp, 2, 2, "#fff4de"); px(hxp + 3, hyp, 2, 2, "#fff4de");
+    px(hxp, hyp + 2, 5, 1, "#fff4de"); px(hxp + 1, hyp + 3, 3, 1, "#fff4de");
+    px(hxp + 2, hyp + 4, 1, 1, "#fff4de");
+  }
+}
+
+/* 折好的卡片，open 0→1 = 封面往左掀開 */
+const CARD_W = 94, CARD_H = 64;
+function drawCard(cx, cy, open, ribbon) {
+  const w = CARD_W, h = CARD_H;
+  const x = Math.round(cx - w / 2), y = Math.round(cy - h / 2);
+
+  // 內頁
+  box(x, y, w, h, "#fffaf0", INK);
+  if (open > 0.02) {
+    ctx.globalAlpha = open * .45;
+    px(x, y, w, h, "#fff8d8");                       // 內頁光暈
+    ctx.globalAlpha = Math.min(1, open * 1.8);
+    for (let i = 0; i < 4; i++)
+      px(x + 10, y + 16 + i * 9, (w - 28) * (0.55 + (i % 3) * 0.15), 2, "#e2cdae");
+    disc(x + w - 17, y + 17, 4, CANDY);
+    ctx.globalAlpha = 1;
+  }
+
+  // 封面：寬度從整張縮到 0，靠左邊當轉軸
+  const cw = Math.round(w * (1 - open));
+  if (cw > 1) {
+    px(x - 1, y - 1, cw + 2, h + 2, INK);
+    px(x, y, cw, h, "#f2dfba");
+    px(x + cw - 2, y, 2, h, "#d9c29a");              // 封面右緣
+    if (open < 0.42) {
+      const bcx = Math.round(x + cw / 2), bcy = y + Math.round(h * 0.38);
+      ctx.globalAlpha = 1 - open / 0.42;
+      disc(bcx - 6, bcy - 9, 3, BEAR_D); disc(bcx + 6, bcy - 9, 3, BEAR_D);
+      disc(bcx, bcy - 4, 8, BEAR);
+      px(bcx - 4, bcy - 6, 2, 2, INK); px(bcx + 3, bcy - 6, 2, 2, INK);
+      ell(bcx + 1, bcy - 1, 4, 3, BEAR_L);
+      px(bcx, bcy - 2, 2, 1, "#4a2f22");
+      px(bcx - 9, bcy - 4, 2, 1, CANDY); px(bcx + 8, bcy - 4, 2, 1, CANDY);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  if (ribbon > 0) {
+    const ry = y + Math.round(h * 0.74);       // 緞帶壓在下方，不擋住熊的臉
+    ctx.globalAlpha = ribbon;
+    px(x - 1, ry - 5, w + 2, 9, "#d94f76");
+    px(x, ry - 4, w, 7, CANDY);
+    disc(cx, ry, 6, "#d94f76");
+    disc(cx - 5, ry - 1, 4, CANDY); disc(cx + 5, ry - 1, 4, CANDY);
+    px(cx - 1, ry - 1, 2, 2, "#fff4de");
+    ctx.globalAlpha = 1;
+  }
+}
+
+/* ==================================================================
+   ⑨  粒子
+   ================================================================== */
+function spawnCrumbs(x, y) {
+  for (let i = 0; i < 9; i++)
+    crumbs.push({ x, y, vx: (Math.random() - .5) * 40, vy: -20 - Math.random() * 40,
+                  c: Math.random() < .5 ? BUTTER : CANDY, life: 700 });
+}
+function spawnConfetti(n) {
+  for (let i = 0; i < n; i++)
+    confetti.push({ x: Math.random() * W, y: -Math.random() * 60,
+      vx: (Math.random() - .5) * 16, vy: 22 + Math.random() * 34,
+      c: BALLOON_COLORS[Math.floor(Math.random() * BALLOON_COLORS.length)],
+      s: 1 + Math.round(Math.random() * 1.4), ph: Math.random() * 6.3 });
+}
+function spawnFirework() {
+  fireworks.push({ x: 40 + Math.random() * (W - 80), y: 24 + Math.random() * 50,
+    r: 0, c: BALLOON_COLORS[Math.floor(Math.random() * BALLOON_COLORS.length)] });
+}
+function stepParticles(dt) {
+  crumbs = crumbs.filter(p => {
+    p.life -= dt; p.vy += 180 * dt / 1000;
+    p.x += p.vx * dt / 1000; p.y += p.vy * dt / 1000;
+    if (p.life <= 0) return false;
+    px(p.x - state.camX, p.y, 1, 1, p.c);
+    return true;
+  });
+  confetti = confetti.filter(p => {
+    p.y += p.vy * dt / 1000; p.x += p.vx * dt / 1000;
+    if (p.y > H + 6) return false;
+    const w = Math.abs(Math.sin(state.t / 200 + p.ph)) * p.s + 1;
+    px(p.x, p.y, w, p.s, p.c);
+    return true;
+  });
+  fireworks = fireworks.filter(f => {
+    f.r += 46 * dt / 1000;
+    if (f.r > 26) return false;
+    ctx.globalAlpha = Math.max(0, 1 - f.r / 26);
+    for (let a = 0; a < 12; a++) {
+      const an = a * Math.PI / 6;
+      px(f.x + Math.cos(an) * f.r, f.y + Math.sin(an) * f.r * .8, 2, 2, f.c);
+    }
+    ctx.globalAlpha = 1;
+    return true;
+  });
+}
+
+/* ==================================================================
+   ⑩  主迴圈
+   ================================================================== */
+let last = 0;
+function loop(ts) {
+  const dt = Math.min(48, ts - last) || 16;
+  last = ts; state.t = ts; state.at += dt;
+  update(dt);
+  render(dt);
+  requestAnimationFrame(loop);
+}
+
+function update(dt) {
+  const s = state;
+
+  if (s.scene === "letterOut") {
+    if (s.at > 2500 * spd) showGate2();
+  }
+
+  if (s.scene === "opening") {
+    const p = s.at / (3400 * spd);
+    s.day = clamp((p - 0.30) / 0.42, 0, 1);
+    if (p > .46 && balloons.length < BALLOON_N) for (let i = 0; i < 4; i++) addBalloon(false, true);
+    if (p >= 1) startWalk();
+  }
+
+  if (s.scene === "walk") {
+    if (s.mode === "walking") {
+      const target = desserts[s.idx].x - 23;   // 站遠一點，甜點才不會被熊擋住
+      const speed = 62 * (RM ? 2.2 : 1);
+      bear.x = Math.min(target, bear.x + speed * dt / 1000);
+      bear.phase += dt / 1000 * 7.5;
+      bear.mood = "idle";
+      if (bear.x >= target - 0.4) { s.mode = "eating"; s.at = 0; sfx("chomp"); }
+    } else if (s.mode === "eating") {
+      const d = desserts[s.idx];
+      const dur = 1250 * spd;
+      d.bite = clamp(s.at / dur, 0, 1);
+      bear.mood = "eat";
+      if (s.at > dur * .35 && s.at - dt <= dur * .35) spawnCrumbs(d.x - 6, GROUND_Y - 8);
+      if (s.at > dur * .7 && s.at - dt <= dur * .7) { spawnCrumbs(d.x - 4, GROUND_Y - 6); sfx("chomp"); }
+      if (s.at >= dur) { d.gone = true; s.mode = "wish"; s.at = 0; bear.hop = 1; showWish(s.idx); }
+    } else if (s.mode === "wish") {
+      bear.mood = "happy";
+    }
+    if (bear.hop > 0) bear.hop = Math.max(0, bear.hop - dt / 420);
+    s.camX = clamp(bear.x - CAM_LEAD, 0, CAM_MAX);
+  }
+
+  if (s.scene === "finale") {
+    if (s.mode === "toCake") {
+      bear.x = Math.min(CAKE_X - 42, bear.x + 66 * dt / 1000);
+      bear.phase += dt / 1000 * 7.5;
+      bear.mood = "idle";
+      s.camX = clamp(bear.x - CAM_LEAD, 0, CAM_MAX);
+      if (bear.x >= CAKE_X - 42.4) { s.mode = "celebrate"; s.at = 0; spawnConfetti(RM ? 20 : 70); sfx("fanfare"); showEnd(); }
+    } else if (s.mode === "celebrate") {
+      bear.mood = "happy";
+      if (!RM && confetti.length < 40) spawnConfetti(6);
+      if (!RM && Math.random() < dt / 900) spawnFirework();
+      if (balloons.length < BALLOON_N) addBalloon(false);
+    }
+    if (bear.hop > 0) bear.hop = Math.max(0, bear.hop - dt / 420);
+  }
+
+  if (s.flash > 0) s.flash = Math.max(0, s.flash - dt / (420 * spd));
+}
+
+function render(dt) {
+  const s = state;
+  ctx.clearRect(0, 0, W, H);
+  drawSky();
+  drawClouds();
+  drawBalloons(dt);
+  drawHills();
+  drawGround();
+
+  // 甜點 + 大蛋糕
+  if (s.scene === "walk" || s.scene === "finale") {
+    desserts.forEach((d, i) => {
+      const sx = d.x - s.camX;
+      if (sx < -24 || sx > W + 24) return;
+      if (i === s.idx && s.mode === "eating") drawDessertBitten(d, sx);
+      else if (!d.gone) drawDessert(d.kind, sx, GROUND_Y + 1);
+    });
+    const cakeSx = CAKE_X - s.camX;
+    if (cakeSx > -40 && cakeSx < W + 40) drawBigCake(cakeSx, GROUND_Y + 1);
+  }
+
+  // 熊
+  const lift = bear.hop > 0 ? Math.sin(bear.hop * Math.PI) * 12 : 0;
+  if (s.scene === "gate1" || s.scene === "letterOut" || s.scene === "gate2") {
+    drawBear(GATE_BEAR_X, GROUND_Y, { walk: 0, mood: s.scene === "gate2" ? "happy" : "look", lift });
+  } else if (s.scene === "opening") {
+    drawBear(GATE_BEAR_X, GROUND_Y, { walk: 0, mood: "happy", lift });
+  } else {
+    drawBear(bear.x - s.camX, GROUND_Y, { walk: bear.phase, mood: bear.mood, lift });
+  }
+
+  // 場景道具
+  if (s.scene === "gate1") {
+    const bob = Math.sin(s.t / 700) * 2;
+    drawEnvelope(ENV_X, 74 + bob, 0, true);
+  } else if (s.scene === "letterOut") {
+    const p = clamp(s.at / (2500 * spd), 0, 1);
+    const flap  = clamp(p / 0.26, 0, 1);
+    const rise  = clamp((p - 0.24) / 0.44, 0, 1);
+    const drop  = clamp((p - 0.66) / 0.34, 0, 1);
+    const envY  = 74 + easeOut(drop) * 170;
+    // 蠟印彈開飛走
+    if (p < 0.32) {
+      const q = p / 0.32;
+      ctx.globalAlpha = 1 - q;
+      disc(ENV_X + q * 40, 92 - q * 34 + q * q * 52, 6, CANDY);
+      ctx.globalAlpha = 1;
+    }
+    // 信封後半 → 卡片 → 信封前口袋，卡片才像從裡面被抽出來
+    drawEnvelope(ENV_X, envY, flap, false, "back");
+    if (rise > 0) drawCard(ENV_X, 96 - easeOut(rise) * 46 + easeOut(drop) * 24, 0, 1);
+    drawEnvelope(ENV_X, envY, flap, false, "front");
+  } else if (s.scene === "gate2") {
+    const bob = Math.sin(s.t / 700) * 2;
+    drawCard(ENV_X, 74 + bob, 0, 1);
+  } else if (s.scene === "opening") {
+    const p = clamp(s.at / (3400 * spd), 0, 1);
+    const ribbon = clamp(1 - p / 0.16, 0, 1);
+    const open   = clamp((p - 0.18) / 0.34, 0, 1);
+    const grow   = clamp((p - 0.60) / 0.30, 0, 1);
+    // 蝴蝶結飛走
+    if (p < 0.3 && p > 0.05) {
+      const q = (p - .05) / .25;
+      ctx.globalAlpha = 1 - q;
+      px(ENV_X - 30 - q * 40, 74 + q * q * 90, 12, 4, CANDY);
+      px(ENV_X + 20 + q * 40, 74 + q * q * 70, 12, 4, "#d94f76");
+      ctx.globalAlpha = 1;
+    }
+    ctx.save();
+    ctx.translate(ENV_X - (ENV_X - W / 2) * ease(grow), 74 - (74 - 84) * ease(grow));
+    const sc = 1 + ease(grow) * 1.9;
+    ctx.scale(sc, sc);
+    drawCard(0, 0, open, ribbon);
+    ctx.restore();
+    // 光線（只灑在天空，不要蓋到地面）
+    if (open > .4) {
+      ctx.save();
+      ctx.beginPath(); ctx.rect(0, 0, W, GRASS_Y); ctx.clip();
+      ctx.globalAlpha = (open - .4) / .6 * .4 * (1 - grow);
+      for (let a = 0; a < 10; a++) {
+        const an = a * Math.PI / 5 + s.t / 2600;
+        tri(ENV_X, 74, ENV_X + Math.cos(an) * 150, 74 + Math.sin(an) * 150,
+                       ENV_X + Math.cos(an + .11) * 150, 74 + Math.sin(an + .11) * 150, "#fff8d8");
+      }
+      ctx.restore();
+    }
+    if (grow > .82) { ctx.globalAlpha = (grow - .82) / .18; px(0, 0, W, H, "#fff8e4"); ctx.globalAlpha = 1; }
+  }
+
+  stepParticles(dt);
+
+  if (s.flash > 0) { ctx.globalAlpha = s.flash * .85; px(0, 0, W, H, "#fff8e4"); ctx.globalAlpha = 1; }
+}
+
+/* ==================================================================
+   ⑪  音效（WebAudio，預設關閉）
+   ================================================================== */
+let actx = null, soundOn = false;
+function sfx(kind) {
+  if (!soundOn) return;
+  if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; } }
+  const notes = {
+    key:     [[660, 0, .06]],
+    err:     [[180, 0, .12], [140, .1, .16]],
+    unlock:  [[523, 0, .1], [659, .09, .1], [784, .18, .14]],
+    chomp:   [[210, 0, .05], [150, .05, .07]],
+    fanfare: [[523,0,.12],[659,.11,.12],[784,.22,.12],[1046,.33,.2],
+              [784,.55,.12],[1046,.66,.3]]
+  }[kind] || [];
+  notes.forEach(([f, t, d]) => {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = "square"; o.frequency.value = f;
+    const t0 = actx.currentTime + t;
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.linearRampToValueAtTime(0.09, t0 + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + d);
+    o.connect(g); g.connect(actx.destination);
+    o.start(t0); o.stop(t0 + d + .02);
+  });
+}
+
+/* ==================================================================
+   ⑫  介面與流程
+   ================================================================== */
+const el = id => document.getElementById(id);
+const panels = { gate: el("panelGate"), wish: el("panelWish"), wait: el("panelWait"), end: el("panelEnd") };
+function showPanel(name) {
+  Object.keys(panels).forEach(k => panels[k].hidden = k !== name);
+  layout();          // 面板高度變了，螢幕比例要跟著調
+}
+
+/* ---- 依螢幕可用空間決定畫面的邏輯寬度 ----
+   高度不夠就把畫面拉寬（比較扁），高度充裕就變窄（像素變大）。 */
+const cabinetEl = document.querySelector(".cabinet");
+const bezelEl   = document.querySelector(".bezel");
+
+function layout() {
+  const bz = getComputedStyle(bezelEl);
+  const padX = parseFloat(bz.paddingLeft) + parseFloat(bz.paddingRight);
+  const availW = Math.max(140, bezelEl.clientWidth - padX);
+
+  const bd = getComputedStyle(document.body);
+  const padY = parseFloat(bd.paddingTop) + parseFloat(bd.paddingBottom);
+  const chromeH = Math.max(0, cabinetEl.offsetHeight - bezelEl.offsetHeight);
+  const availH = Math.max(110, window.innerHeight - chromeH - padY - 20);
+
+  let w = Math.ceil(availW * H / availH);
+  w = Math.round(clamp(w, 200, 384) / 2) * 2;
+
+  if (w !== W) {
+    W = w;
+    cv.width = W; cv.height = H;        // 改尺寸會重置 context
+    ctx.imageSmoothingEnabled = false;
+    applyMetrics();
+    if (balloons.length) refillBalloons();
+    state.camX = clamp(state.camX, 0, CAM_MAX);
+  }
+  cv.style.aspectRatio = W + " / " + H;
+  // 高度真的塞不下時（例如橫躺的手機），再用寬度把它縮回來
+  cv.style.maxWidth = Math.floor(Math.min(availW, availH * W / H)) + "px";
+}
+
+let lastVW = 0;
+addEventListener("resize", () => {
+  const vw = window.innerWidth;
+  // 手機鍵盤彈出只會改高度，這時候不要重排，不然畫面會跳
+  if (vw === lastVW && document.activeElement === el("codeInput")) return;
+  lastVW = vw;
+  layout();
+});
+addEventListener("orientationchange", () => setTimeout(layout, 260));
+
+/* 手繪 3×5 像素數字 */
+const DIGITS = {
+  "0": "111101101101111", "1": "010010010010010", "2": "111001111100111",
+  "3": "111001111001111", "4": "101101111001001", "5": "111100111001111",
+  "6": "111100111101111", "7": "111001001001001", "8": "111101111101111",
+  "9": "111101111001111"
+};
+function renderSlots() {
+  const v = el("codeInput").value;
+  const box = el("slots");
+  box.innerHTML = "";
+  for (let i = 0; i < 4; i++) {
+    const slot = document.createElement("div");
+    slot.className = "slot" + (i === Math.min(v.length, 3) && v.length < 4 ? " active" : "");
+    if (v[i]) {
+      const g = document.createElement("div");
+      g.className = "pxd";
+      const map = DIGITS[v[i]] || DIGITS["0"];
+      for (let k = 0; k < 15; k++) {
+        const cell = document.createElement("i");
+        if (map[k] === "1") cell.className = "on";
+        g.appendChild(cell);
+      }
+      slot.appendChild(g);
+    }
+    box.appendChild(slot);
+  }
+}
+
+function setPips() {
+  const p = el("pips");
+  p.innerHTML = "";
+  if (state.scene === "gate1" || state.scene === "gate2" || state.scene === "letterOut") {
+    el("eyebrow").textContent = "封印 " + state.gate + " / 2";
+    for (let i = 0; i < 2; i++) {
+      const d = document.createElement("span");
+      d.className = "pip" + (i < state.gate - 1 ? " on" : "");
+      p.appendChild(d);
+    }
+  } else {
+    const eaten = desserts.filter(d => d.gone).length;
+    el("eyebrow").textContent = "甜點 " + eaten + " / " + desserts.length;
+    desserts.forEach(d => {
+      const s = document.createElement("span");
+      s.className = "pip" + (d.gone ? " on" : "");
+      p.appendChild(s);
+    });
+  }
+}
+
+/* --- 密碼 --- */
+function focusCode() { el("codeInput").focus({ preventScroll: true }); }
+el("codeField").addEventListener("click", focusCode);
+
+let autoTimer = null;
+el("codeInput").addEventListener("input", () => {
+  const inp = el("codeInput");
+  inp.value = inp.value.replace(/\D/g, "").slice(0, 4);
+  renderSlots();
+  if (inp.value.length) sfx("key");
+  el("gateMsg").textContent = "";
+  el("gateMsg").className = "msg";
+  clearTimeout(autoTimer);
+  if (inp.value.length === 4) autoTimer = setTimeout(checkCode, 260);
+});
+el("codeInput").addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); clearTimeout(autoTimer); checkCode(); }
+});
+el("openBtn").addEventListener("click", () => { clearTimeout(autoTimer); checkCode(); });
+
+function checkCode() {
+  const inp = el("codeInput");
+  const want = state.gate === 1 ? CONFIG.code1 : CONFIG.code2;
+  if (inp.value.length < 4) { el("gateMsg").textContent = "還差幾個數字。"; el("gateMsg").className = "msg err"; focusCode(); return; }
+  if (inp.value === want) {
+    sfx("unlock");
+    state.flash = 1;
+    inp.blur();
+    if (state.gate === 1) playLetterOut(); else playOpen();
+    return;
+  }
+  state.tries++;
+  sfx("err");
+  el("slots").classList.remove("shake");
+  void el("slots").offsetWidth;
+  el("slots").classList.add("shake");
+  const m = el("gateMsg");
+  if (state.tries >= 2) {
+    m.textContent = state.gate === 1 ? CONFIG.hint1 : CONFIG.hint2;
+    m.className = "msg hint";
+  } else {
+    m.textContent = "不是這組數字，再想一下。";
+    m.className = "msg err";
+  }
+  inp.value = ""; renderSlots(); focusCode();
+}
+
+/* --- 流程 --- */
+function playLetterOut() {
+  state.scene = "letterOut"; state.at = 0;
+  showPanel("wait");
+  el("waitLede").textContent = "封蠟掉了……信正在被拿出來。";
+  cv.setAttribute("aria-label", "信封打開，一張折好的卡片被拿出來");
+}
+function showGate2() {
+  state.scene = "gate2"; state.gate = 2; state.tries = 0; state.at = 0;
+  showPanel("gate");
+  el("gateLede").textContent = CONFIG.lede2;
+  el("gateMsg").textContent = ""; el("gateMsg").className = "msg";
+  el("codeInput").value = ""; renderSlots(); setPips();
+  el("openBtn").textContent = "打開卡片";
+  cv.setAttribute("aria-label", "一張用緞帶綁著、還沒打開的卡片");
+  focusCode();
+}
+function playOpen() {
+  state.scene = "opening"; state.at = 0;
+  showPanel("wait");
+  el("waitLede").textContent = "卡片正在打開……";
+  cv.setAttribute("aria-label", "卡片打開，天空亮起來並飛滿氣球");
+}
+function startWalk() {
+  state.scene = "walk"; state.mode = "walking"; state.at = 0;
+  state.day = 1; state.idx = 0;
+  bear.x = 30; bear.phase = 0;
+  refillBalloons();          // 讓天空一開始就滿是氣球
+  showPanel("wait");
+  el("waitLede").textContent = "天亮了，熊往前走去。路上有六個甜點。";
+  setPips();
+  cv.setAttribute("aria-label", "白天的草地，天空滿是氣球，小熊沿著小路走向甜點");
+}
+function showWish(i) {
+  const w = CONFIG.wishes[i];
+  el("wishText").textContent = w.text;
+  el("wishCount").textContent = "第 " + (i + 1) + " 個甜點，共 " + desserts.length + " 個";
+  el("nextBtn").textContent = i === desserts.length - 1 ? "走到最後" : "繼續散步";
+  const d = el("wish");
+  d.style.animation = "none"; void d.offsetWidth; d.style.animation = "";
+  showPanel("wish");
+  setPips();
+  el("nextBtn").focus({ preventScroll: true });
+}
+el("nextBtn").addEventListener("click", () => {
+  if (state.idx >= desserts.length - 1) {
+    state.scene = "finale"; state.mode = "toCake"; state.at = 0;
+    showPanel("wait");
+    el("waitLede").textContent = "前面還有一個東西。";
+    cv.setAttribute("aria-label", "小熊走向一個插著蠟燭的大蛋糕");
+  } else {
+    state.idx++;
+    state.mode = "walking";
+    showPanel("wait");
+    el("waitLede").textContent = "熊繼續往前走……";
+  }
+  setPips();
+});
+function showEnd() {
+  el("endText").textContent = CONFIG.ending;
+  el("eyebrow").textContent = CONFIG.to ? "給 " + CONFIG.to : "生日快樂";
+  showPanel("end");
+  el("replayBtn").focus({ preventScroll: true });
+}
+el("replayBtn").addEventListener("click", reset);
+
+function reset() {
+  state.scene = "gate1"; state.mode = "idle"; state.gate = 1;
+  state.day = 0; state.idx = 0; state.camX = 0; state.at = 0; state.tries = 0; state.flash = 0;
+  bear.x = 60; bear.phase = 0; bear.hop = 0; bear.mood = "look";
+  initWorld();
+  showPanel("gate");
+  el("gateLede").textContent = CONFIG.lede1;
+  el("openBtn").textContent = "解開";
+  el("gateMsg").textContent = ""; el("gateMsg").className = "msg";
+  el("codeInput").value = ""; renderSlots(); setPips();
+  cv.setAttribute("aria-label", "黃昏的草地，小熊旁邊漂著一封封起來的信");
+}
+
+/* 點畫面讓熊跳一下 */
+cv.addEventListener("click", () => {
+  if (!actx && soundOn) sfx("key");
+  if (bear.hop <= 0) bear.hop = 1;
+});
+
+/* 音效開關 */
+el("soundBtn").addEventListener("click", () => {
+  soundOn = !soundOn;
+  const b = el("soundBtn");
+  b.textContent = soundOn ? "🔊 音效開" : "🔇 音效關";
+  b.setAttribute("aria-pressed", String(soundOn));
+  if (soundOn) sfx("key");
+});
+
+/* 走 */
+layout();
+initWorld();
+reset();
+lastVW = window.innerWidth;
+requestAnimationFrame(loop);
+</script>
