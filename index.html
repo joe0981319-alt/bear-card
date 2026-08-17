@@ -121,19 +121,99 @@
     display: flex;
     justify-content: center;
   }
+  .screen-wrap {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+  }
   canvas.screen {
     display: block;
     width: 100%;
-    max-width: 100%;
-    min-width: 0;
     height: auto;
     aspect-ratio: 320 / 180;   /* JS 會依螢幕比例改寫 */
-    background: #2a1d47;
+    background: #1e1533;
     image-rendering: pixelated;
     image-rendering: crisp-edges;
     cursor: pointer;
     touch-action: manipulation;
   }
+
+  /* ---------- 場景內的像素對話框 ---------- */
+  .scene-ui {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    padding: 3.2%;
+    pointer-events: none;      /* 只有框本身要吃點擊 */
+  }
+  .pxbox {
+    pointer-events: auto;
+    position: relative;
+    display: block;
+    width: 100%;
+    max-width: 62ch;
+    margin: 0 auto;
+    appearance: none;
+    border: 0;
+    font: inherit;
+    text-align: left;
+    background: var(--ink);          /* 外框 */
+    padding: 4px;
+    cursor: pointer;
+    touch-action: manipulation;
+    box-shadow: 0 4px 0 0 rgba(0,0,0,.45);
+    clip-path: polygon(
+      8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px),
+      calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px), 0 8px);
+  }
+  .pxbox[aria-disabled="true"] { cursor: default; }
+  .pxbox:hover:not([aria-disabled="true"]) .pxbox-in { background: #fffaea; }
+  .pxbox:active:not([aria-disabled="true"]) { transform: translateY(2px); }
+  .pxbox:focus-visible { outline: 3px solid var(--mint); outline-offset: 3px; }
+
+  .pxbox-in {
+    display: block;
+    background: var(--cream);
+    color: var(--ink);
+    padding: 9px 12px 13px;
+    box-shadow: inset 0 0 0 2px #cdb391;
+    clip-path: polygon(
+      5px 0, calc(100% - 5px) 0, 100% 5px, 100% calc(100% - 5px),
+      calc(100% - 5px) 100%, 5px 100%, 0 calc(100% - 5px), 0 5px);
+  }
+  .pxbox-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .22em;
+    color: #8a6f4e;
+    margin-bottom: 5px;
+  }
+  .pxbox-title {
+    display: block;
+    font-size: clamp(20px, 5.2vw, 32px);
+    font-weight: 900;
+    letter-spacing: .06em;
+    line-height: 1.15;
+    color: #bf3a63;
+    text-shadow: 3px 3px 0 #f3d9b6;
+    margin-bottom: 6px;
+  }
+  .pxbox-title[hidden] { display: none; }
+  .pxbox-text {
+    display: block;
+    font-size: clamp(13px, 3.3vw, 17px);
+    font-weight: 700;
+    line-height: 1.65;
+    text-wrap: pretty;
+  }
+  .pxbox-next {
+    position: absolute;
+    right: 13px; bottom: 8px;
+    font-size: 11px;
+    color: #8a6f4e;
+    animation: blink 1s steps(2, jump-none) infinite;
+  }
+  .pxbox-next[hidden] { display: none; }
 
   /* ---------- 下方面板 ---------- */
   .console { display: flex; flex-direction: column; gap: 12px; }
@@ -225,47 +305,6 @@
   .msg.err { color: var(--candy); }
   .msg.hint { color: var(--butter); }
 
-  /* 賀詞對話框 */
-  .dialog {
-    background: var(--cream);
-    color: var(--ink);
-    border: 3px solid var(--ink);
-    padding: 16px 18px;
-    font-size: clamp(15px, 2.5vw, 20px);
-    font-weight: 800;
-    line-height: 1.7;
-    letter-spacing: .01em;
-    text-wrap: balance;
-    box-shadow: 5px 5px 0 0 rgba(0,0,0,.35);
-    clip-path: polygon(
-      6px 0, calc(100% - 6px) 0, 100% 6px, 100% calc(100% - 6px),
-      calc(100% - 6px) 100%, 6px 100%, 0 calc(100% - 6px), 0 6px);
-    /* 只動 transform，不動 opacity——動畫沒跑時也一定看得見 */
-    animation: pop .28s steps(3, jump-none);
-  }
-  .dialog .who {
-    display: block;
-    font-size: 11px;
-    letter-spacing: .2em;
-    text-transform: uppercase;
-    color: #8a6f4e;
-    margin-bottom: 6px;
-  }
-  @keyframes pop {
-    from { transform: translateY(10px) scaleY(.9); }
-    to   { transform: translateY(0)    scaleY(1); }
-  }
-
-  .big {
-    margin: 0;
-    font-size: clamp(30px, 8vw, 60px);
-    font-weight: 900;
-    letter-spacing: .06em;
-    line-height: 1.1;
-    color: var(--butter);
-    text-shadow: 4px 4px 0 var(--ink), 8px 8px 0 rgba(255,143,177,.5);
-  }
-
   .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 
   .btn {
@@ -311,7 +350,7 @@
     .cabinet { padding: 11px; gap: 11px; }
     .bezel { padding: 6px; }
     .btn { padding: 11px 16px; font-size: 15px; }
-    .dialog { padding: 13px 14px; }
+    .pxbox-in { padding: 8px 10px 12px; }
     .foot { font-size: 10px; }
   }
   @media (max-width: 360px) {
@@ -335,7 +374,9 @@
     .bezel   { grid-area: screen; padding: 5px; }
     .console { grid-area: console; }
     .lede { font-size: 15px; }
-    .dialog { padding: 10px 12px; font-size: 15px; }
+    .pxbox-in { padding: 7px 10px 11px; }
+    .pxbox-text { font-size: 14px; line-height: 1.5; }
+    .pxbox-title { font-size: 22px; }
     .btn { min-height: 44px; padding: 9px 14px; }
     .foot { display: none; }
   }
@@ -355,8 +396,22 @@
   </div>
 
   <div class="bezel">
-    <canvas class="screen" id="screen" width="320" height="180"
-            role="img" aria-label="像素風場景：一隻小熊和一封封起來的信"></canvas>
+    <div class="screen-wrap" id="screenWrap">
+      <canvas class="screen" id="screen" width="320" height="180"
+              role="img" aria-label="像素風場景：一封用蠟封起來的信"></canvas>
+
+      <!-- 場景裡的像素對話框：賀詞直接長在熊的畫面上 -->
+      <div class="scene-ui" id="sceneUI" hidden>
+        <button class="pxbox" id="sceneDialog" type="button">
+          <span class="pxbox-in">
+            <span class="pxbox-label" id="sceneWho">熊熊說</span>
+            <span class="pxbox-title" id="sceneTitle" hidden>生日快樂</span>
+            <span class="pxbox-text" id="sceneText"></span>
+          </span>
+          <span class="pxbox-next" id="sceneNext" aria-hidden="true">▼</span>
+        </button>
+      </div>
+    </div>
   </div>
 
   <div class="console">
@@ -375,30 +430,13 @@
       <p class="msg" id="gateMsg"></p>
     </section>
 
-    <!-- 賀詞 -->
-    <section class="panel" id="panelWish" hidden>
-      <div class="dialog" id="wish">
-        <span class="who">熊熊說</span>
-        <span id="wishText"></span>
-      </div>
-      <div class="row">
-        <button class="btn" id="nextBtn" type="button">繼續散步</button>
-        <span class="sub" id="wishCount"></span>
-      </div>
-    </section>
-
     <!-- 過場（動畫中） -->
     <section class="panel" id="panelWait" hidden>
       <p class="lede" id="waitLede">……</p>
     </section>
 
-    <!-- 結尾 -->
+    <!-- 結尾（賀詞在畫面裡，這裡只留說明） -->
     <section class="panel" id="panelEnd" hidden>
-      <p class="big">生日快樂</p>
-      <div class="dialog" id="endDialog">
-        <span class="who">最後一句</span>
-        <span id="endText"></span>
-      </div>
       <p class="sub">想再看一次的話，重新整理這個頁面就可以了。</p>
     </section>
   </div>
@@ -536,6 +574,8 @@ const GROUND_Y = 156;            // 熊腳底（踩在小路上）
 const FG_Y     = PATH_Y + PATH_H; // 前景草
 const DESSERT_X = [150, 340, 530, 730, 930, 1120];
 const CAKE_X    = 1330;
+const DOG_X     = 1296;          // 吉娃娃坐在蛋糕左邊
+const BEAR_END_X = 1252;         // 熊再往左，熊 → 狗 → 蛋糕 三個都不重疊
 
 /* 這些都跟畫面寬度有關，W 一變就要重算 */
 let CAM_MAX, CAM_LEAD, BALLOON_SPAN, BALLOON_N, SKY_OBJ_X;
@@ -564,6 +604,8 @@ const state = {
   day: 0,             // 0 = 黃昏, 1 = 白天
   idx: 0,             // 下一個要吃的甜點
   camX: 0,
+  camY: 0,            // 對話框出現時整個世界往上讓，熊才不會被蓋住
+  camYTarget: 0,
   flash: 0,
   gate: 1,
   tries: 0
@@ -903,6 +945,58 @@ function drawDessertBitten(d, sx) {
   ctx.restore();
 }
 
+/* 蛋糕左邊的吉娃娃：坐姿、面向蛋糕、大立耳、尾巴會搖
+   刻意比熊矮一截（約 20px vs 35px），一眼看得出是小型犬 */
+const DOG = "#e9c9a1", DOG_D = "#c39a6d", DOG_L = "#fff4de";
+function drawChihuahua(x, by) {
+  x = Math.round(x); by = Math.round(by);
+  const wag = Math.sin(state.t / 190) * 2;
+
+  ctx.globalAlpha = .22;
+  ell(x + 1, by, 9, 2, "#000");
+  ctx.globalAlpha = 1;
+
+  // 尾巴（細細地翹起來搖）
+  for (let i = 0; i < 6; i++)
+    px(x - 7 - i, by - 8 - i + Math.round(wag * (i / 5)), 2, 2, DOG_D);
+
+  // 坐著的後腿與身體
+  ellO(x - 3, by - 5, 5, 5, DOG_D, INK);
+  ellO(x + 2, by - 8, 5, 6, DOG, INK);
+  ell(x + 3, by - 7, 3, 4, DOG_L);                 // 白胸
+
+  // 前腳
+  box(x + 2, by - 4, 2, 4, DOG_L, INK);
+  box(x + 5, by - 4, 2, 4, DOG_L, INK);
+
+  // 頭（蘋果頭）
+  const hy = by - 15;
+  ellO(x + 4, hy, 5, 5, DOG, INK);
+
+  // 大立耳
+  tri(x - 2, hy - 2, x + 3, hy - 3, x - 1, hy - 10, INK);
+  tri(x - 1, hy - 3, x + 2, hy - 4, x, hy - 9, DOG);
+  tri(x + 6, hy - 3, x + 11, hy - 2, x + 10, hy - 10, INK);
+  tri(x + 7, hy - 4, x + 10, hy - 3, x + 9, hy - 9, DOG);
+
+  // 口鼻與鼻子
+  ell(x + 8, hy + 2, 3, 2, DOG_L);
+  px(x + 9, hy + 1, 2, 2, "#3a241a");
+
+  // 大眼睛（吉娃娃的招牌）
+  const blink = (state.t + 900) % 4200 < 130;
+  if (blink) { px(x + 2, hy, 2, 1, INK); px(x + 6, hy, 2, 1, INK); }
+  else {
+    px(x + 2, hy - 1, 2, 3, INK); px(x + 6, hy - 1, 2, 3, INK);
+    px(x + 2, hy - 1, 1, 1, CREAM); px(x + 6, hy - 1, 1, 1, CREAM);
+  }
+
+  // 薄荷色項圈，跟熊的粉紅帽子區隔開
+  px(x + 1, hy + 5, 8, 2, INK);
+  px(x + 1, hy + 5, 8, 1, MINT);
+  px(x + 4, hy + 6, 2, 2, BUTTER);
+}
+
 function drawBigCake(x, by) {
   x = Math.round(x); by = Math.round(by);
   ctx.globalAlpha = .22; ell(x, by + 1, 22, 3, "#000"); ctx.globalAlpha = 1;
@@ -1160,11 +1254,11 @@ function update(dt) {
 
   if (s.scene === "finale") {
     if (s.mode === "toCake") {
-      bear.x = Math.min(CAKE_X - 42, bear.x + 66 * dt / 1000);
+      bear.x = Math.min(BEAR_END_X, bear.x + 66 * dt / 1000);
       bear.phase += dt / 1000 * 7.5;
       bear.mood = "idle";
       s.camX = clamp(bear.x - CAM_LEAD, 0, CAM_MAX);
-      if (bear.x >= CAKE_X - 42.4) { s.mode = "celebrate"; s.at = 0; spawnConfetti(RM ? 20 : 70); sfx("fanfare"); showEnd(); }
+      if (bear.x >= BEAR_END_X - 0.4) { s.mode = "celebrate"; s.at = 0; spawnConfetti(RM ? 20 : 70); sfx("fanfare"); showEnd(); }
     } else if (s.mode === "celebrate") {
       bear.mood = "happy";
       if (!RM && confetti.length < 40) spawnConfetti(6);
@@ -1180,6 +1274,10 @@ function update(dt) {
     bear.fat += (target - bear.fat) * Math.min(1, dt / 300);
   }
 
+  // 鏡頭上下平移，讓對話框有位置又不擋到熊
+  s.camY += (s.camYTarget - s.camY) * Math.min(1, dt / 200);
+  if (Math.abs(s.camYTarget - s.camY) < 0.4) s.camY = s.camYTarget;
+
   if (s.flash > 0) s.flash = Math.max(0, s.flash - dt / (420 * spd));
 }
 
@@ -1191,6 +1289,8 @@ function render(dt) {
   const letter = s.scene === "gate1" || s.scene === "letterOut" || s.scene === "gate2";
 
   if (!letter) {
+    ctx.save();
+    ctx.translate(0, Math.round(s.camY));      // 世界整體上移，讓出對話框的位置
     drawSky();
     drawClouds();
     drawBalloons(dt);
@@ -1205,12 +1305,15 @@ function render(dt) {
         else if (!d.gone) drawDessert(d.kind, sx, GROUND_Y + 1);
       });
       const cakeSx = CAKE_X - s.camX;
-      if (cakeSx > -40 && cakeSx < W + 40) drawBigCake(cakeSx, GROUND_Y + 1);
+      if (cakeSx > -46 && cakeSx < W + 46) drawBigCake(cakeSx, GROUND_Y + 1);
+      const dogSx = DOG_X - s.camX;
+      if (dogSx > -24 && dogSx < W + 24) drawChihuahua(dogSx, GROUND_Y + 1);
 
       const lift = bear.hop > 0 ? Math.sin(bear.hop * Math.PI) * 12 : 0;
       drawBear(bear.x - s.camX, GROUND_Y,
                { walk: bear.phase, mood: bear.mood, lift, fat: bear.fat });
     }
+    ctx.restore();
   }
 
   // 信的底色；卡片打開時淡出，世界才浮現
@@ -1315,10 +1418,41 @@ function sfx(kind) {
    ⑫  介面與流程
    ================================================================== */
 const el = id => document.getElementById(id);
-const panels = { gate: el("panelGate"), wish: el("panelWish"), wait: el("panelWait"), end: el("panelEnd") };
+const panels = { gate: el("panelGate"), wait: el("panelWait"), end: el("panelEnd") };
+/* name 傳 "none" 就全部收起來，螢幕可以吃掉整個高度 */
 function showPanel(name) {
   Object.keys(panels).forEach(k => panels[k].hidden = k !== name);
   layout();          // 面板高度變了，螢幕比例要跟著調
+}
+
+/* ---- 場景內的對話框 ---- */
+function showSceneDialog(who, text, opts) {
+  opts = opts || {};
+  el("sceneWho").textContent = who;
+  el("sceneText").textContent = text;
+  const t = el("sceneTitle");
+  t.hidden = !opts.title;
+  if (opts.title) t.textContent = opts.title;
+  el("sceneNext").hidden = !!opts.last;
+  const box = el("sceneDialog");
+  box.setAttribute("aria-disabled", opts.last ? "true" : "false");
+  box.setAttribute("aria-label", opts.last ? text : text + "（點一下繼續）");
+  el("sceneUI").hidden = false;
+  measureDialog();
+  if (!opts.last) box.focus({ preventScroll: true });
+}
+function hideSceneDialog() {
+  el("sceneUI").hidden = true;
+  state.camYTarget = 0;
+}
+/* 量出對話框在畫布座標系裡的高度，鏡頭才知道要往上讓多少 */
+function measureDialog() {
+  const ui = el("sceneUI");
+  if (ui.hidden) { state.camYTarget = 0; return; }
+  const r = cv.getBoundingClientRect();
+  if (!r.height) { state.camYTarget = 0; return; }
+  const dh = ui.getBoundingClientRect().height * (H / r.height);
+  state.camYTarget = Math.min(0, (H - dh) - GROUND_Y - 7);   // 留一點空隙，熊才不會貼在框上
 }
 
 /* ---- 依螢幕可用空間決定畫面的邏輯寬度 ----
@@ -1334,7 +1468,7 @@ function layout() {
   const bd = getComputedStyle(document.body);
   const padY = parseFloat(bd.paddingTop) + parseFloat(bd.paddingBottom);
   const chromeH = Math.max(0, cabinetEl.offsetHeight - bezelEl.offsetHeight);
-  const availH = Math.max(110, window.innerHeight - chromeH - padY - 20);
+  const availH = Math.max(110, window.innerHeight - chromeH - padY - 26);
 
   let w = Math.ceil(availW * H / availH);
   w = Math.round(clamp(w, 200, 384) / 2) * 2;
@@ -1349,7 +1483,8 @@ function layout() {
   }
   cv.style.aspectRatio = W + " / " + H;
   // 高度真的塞不下時（例如橫躺的手機），再用寬度把它縮回來
-  cv.style.maxWidth = Math.floor(Math.min(availW, availH * W / H)) + "px";
+  el("screenWrap").style.maxWidth = Math.floor(Math.min(availW, availH * W / H)) + "px";
+  measureDialog();          // 螢幕大小變了，對話框佔的比例也變了
 }
 
 let lastVW = 0;
@@ -1488,39 +1623,35 @@ function startWalk() {
   bear.x = 30; bear.phase = 0;
   refillBalloons();          // 讓天空一開始就滿是氣球
   el("foot").hidden = false; // 有熊了，才提示可以點牠
-  showPanel("wait");
-  el("waitLede").textContent = "天亮了，熊往前走去。路上有六個甜點。";
+  hideSceneDialog();
+  showPanel("none");         // 螢幕吃掉整個高度，熊的畫面才是主角
   setPips();
   cv.setAttribute("aria-label", "白天的草地，天空滿是氣球，小熊沿著小路走向甜點");
 }
 function showWish(i) {
-  const w = CONFIG.wishes[i];
-  el("wishText").textContent = w.text;
-  el("wishCount").textContent = "第 " + (i + 1) + " 個甜點，共 " + desserts.length + " 個";
-  el("nextBtn").textContent = i === desserts.length - 1 ? "走到最後" : "繼續散步";
-  const d = el("wish");
-  d.style.animation = "none"; void d.offsetWidth; d.style.animation = "";
-  showPanel("wish");
+  showPanel("none");
+  showSceneDialog("熊熊說", CONFIG.wishes[i].text);
   setPips();
-  el("nextBtn").focus({ preventScroll: true });
 }
-el("nextBtn").addEventListener("click", () => {
+
+/* 點對話框就往前走（最後一句不再前進） */
+el("sceneDialog").addEventListener("click", () => {
+  if (state.scene !== "walk" || state.mode !== "wish") return;
+  hideSceneDialog();
   if (state.idx >= desserts.length - 1) {
     state.scene = "finale"; state.mode = "toCake"; state.at = 0;
-    showPanel("wait");
-    el("waitLede").textContent = "前面還有一個東西。";
-    cv.setAttribute("aria-label", "小熊走向一個插著蠟燭的大蛋糕");
+    cv.setAttribute("aria-label", "小熊走向一個插著蠟燭的大蛋糕，旁邊有一隻吉娃娃");
   } else {
     state.idx++;
     state.mode = "walking";
-    showPanel("wait");
-    el("waitLede").textContent = "熊繼續往前走……";
   }
+  showPanel("none");
   setPips();
 });
+
 function showEnd() {
-  el("endText").textContent = CONFIG.ending;
   el("eyebrow").textContent = CONFIG.to ? "給 " + CONFIG.to : "生日快樂";
+  showSceneDialog("最後一句", CONFIG.ending, { title: "生日快樂", last: true });
   showPanel("end");
 }
 
@@ -1529,6 +1660,8 @@ function reset() {
   state.scene = "gate1"; state.mode = "idle"; state.gate = 1;
   state.day = 1;         // 世界永遠是白天了；黃昏改成信本身的深色底
   state.idx = 0; state.camX = 0; state.at = 0; state.tries = 0; state.flash = 0;
+  state.camY = 0; state.camYTarget = 0;
+  hideSceneDialog();
   bear.x = 60; bear.phase = 0; bear.hop = 0; bear.mood = "look"; bear.fat = 0;
   initWorld();
   showPanel("gate");
