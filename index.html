@@ -13,14 +13,16 @@
      刻意單一視覺世界（黃昏 → 白天的像素電玩螢幕），
      所有顏色都明確指定，不跟隨瀏覽器深淺主題。
      ============================================================ */
+  /* 機身走深青板岩，接住畫面裡天空的冷色；
+     奶油、奶油黃、糖果粉這些暖調就會跳出來 */
   :root {
-    --ink:        #170f28;
-    --ink-2:      #2c1e46;
-    --ink-3:      #402c62;
-    --ink-4:      #574080;
+    --ink:        #0d191e;    /* 描邊／最深 */
+    --shell:      #172b33;    /* 機身 */
+    --shell-2:    #21404b;    /* 凸起的元件 */
+    --shell-3:    #2f5c6b;    /* 滑過 */
+    --shell-line: #3d7182;    /* 細節線 */
     --cream:      #fff4de;
-    --cream-2:    #ecd9b8;
-    --cream-dim:  #b9a489;
+    --cream-dim:  #9fb6bd;
     --butter:     #ffd15c;
     --candy:      #ff8fb1;
     --mint:       #7fe3c9;
@@ -40,7 +42,7 @@
     min-height: 100dvh;
     background: var(--ink);
     background-image:
-      radial-gradient(circle at 50% 0%, #2a1d47 0%, #170f28 60%, #110b1e 100%);
+      radial-gradient(ellipse at 50% -10%, #23434e 0%, #12242b 55%, #081014 100%);
     color: var(--cream);
     font-family: var(--sans);
     display: grid;
@@ -56,9 +58,13 @@
     width: 100%;
     min-width: 0;          /* 沒有這行，canvas 的內建 320px 會把版面撐爆手機螢幕 */
     max-width: 880px;
-    background: var(--ink-2);
+    background: var(--shell);
     border: 3px solid var(--ink);
-    box-shadow: 0 10px 0 0 #0d0817, 0 10px 40px rgba(0,0,0,.55);
+    /* 上緣一道亮邊、下方硬陰影，讓機身有厚度 */
+    box-shadow:
+      inset 0 2px 0 0 rgba(255,255,255,.07),
+      0 10px 0 0 #081319,
+      0 14px 46px rgba(0,0,0,.6);
     padding: 18px;
     display: flex;
     flex-direction: column;
@@ -90,15 +96,18 @@
   .pips { display: flex; gap: 5px; margin-left: auto; align-items: center; }
   .pip {
     width: 9px; height: 9px;
-    background: var(--ink-4);
+    background: var(--shell-2);
     box-shadow: inset 0 0 0 2px var(--ink);
   }
-  .pip.on { background: var(--butter); }
+  .pip.on {
+    background: var(--butter);
+    box-shadow: inset 0 0 0 2px var(--ink), 0 0 7px rgba(255,209,92,.65);
+  }
 
   .sound {
     appearance: none;
     border: 2px solid var(--ink);
-    background: var(--ink-3);
+    background: var(--shell-2);
     color: var(--cream);
     font: inherit;
     font-size: 13px;
@@ -109,29 +118,63 @@
     touch-action: manipulation;
     white-space: nowrap;
   }
-  .sound:hover { background: var(--ink-4); }
+  .sound:hover { background: var(--shell-3); }
 
   /* ---------- 螢幕 ---------- */
   .bezel {
-    background: #0e0919;
+    position: relative;
+    background: #081317;
     border: 3px solid var(--ink);
     padding: 9px;
     min-width: 0;
-    box-shadow: inset 0 3px 14px rgba(0,0,0,.85);
+    box-shadow:
+      inset 0 3px 16px rgba(0,0,0,.9),
+      inset 0 0 0 1px rgba(61,113,130,.35);   /* 內側細亮線 */
     display: flex;
     justify-content: center;
+  }
+  /* 機身上的小電源燈 */
+  .bezel::after {
+    content: "";
+    position: absolute;
+    right: 7px; bottom: 6px;
+    width: 4px; height: 4px;
+    background: var(--mint);
+    box-shadow: 0 0 6px rgba(127,227,201,.9);
   }
   .screen-wrap {
     position: relative;
     width: 100%;
     min-width: 0;
   }
+  /* 掃描線 + 暗角：讓它像一塊真的小螢幕 */
+  .screen-fx {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background:
+      repeating-linear-gradient(to bottom,
+        rgba(0,0,0,.11) 0 1px, rgba(0,0,0,0) 1px 3px),
+      radial-gradient(ellipse 80% 78% at 50% 46%,
+        rgba(0,0,0,0) 58%, rgba(4,14,18,.38) 100%);
+  }
+  /* 玻璃上的一道斜向反光 */
+  .screen-fx::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(122deg,
+      rgba(255,255,255,.075) 0%, rgba(255,255,255,.02) 26%,
+      rgba(255,255,255,0) 46%);
+  }
+  .scene-ui { z-index: 2; }
   canvas.screen {
     display: block;
     width: 100%;
     height: auto;
     aspect-ratio: 320 / 180;   /* JS 會依螢幕比例改寫 */
-    background: #1e1533;
+    background: #101f26;
     image-rendering: pixelated;
     image-rendering: crisp-edges;
     cursor: pointer;
@@ -265,9 +308,10 @@
   .slot {
     width: calc(var(--u) * 3 + 22px);
     height: calc(var(--u) * 5 + 20px);
-    background: #0e0919;
+    background: #081317;
     border: 2px solid var(--ink);
-    box-shadow: inset 0 2px 8px rgba(0,0,0,.8);
+    box-shadow: inset 0 2px 8px rgba(0,0,0,.85),
+                inset 0 0 0 1px rgba(61,113,130,.3);
     display: grid;
     place-items: center;
     position: relative;
@@ -328,11 +372,11 @@
   .btn:hover { background: #ffdc82; }
   .btn:active { transform: translateY(4px); box-shadow: 0 1px 0 0 #b8892a; }
   .btn.ghost {
-    background: var(--ink-3);
+    background: var(--shell-2);
     color: var(--cream);
-    box-shadow: 0 5px 0 0 #1d1333;
+    box-shadow: 0 5px 0 0 #0b1a20;
   }
-  .btn.ghost:hover { background: var(--ink-4); }
+  .btn.ghost:hover { background: var(--shell-3); }
   .btn:focus-visible, .sound:focus-visible {
     outline: 3px solid var(--mint);
     outline-offset: 3px;
@@ -399,6 +443,7 @@
     <div class="screen-wrap" id="screenWrap">
       <canvas class="screen" id="screen" width="320" height="180"
               role="img" aria-label="像素風場景：一封用蠟封起來的信"></canvas>
+      <div class="screen-fx" aria-hidden="true"></div>
 
       <!-- 場景裡的像素對話框：賀詞直接長在熊的畫面上 -->
       <div class="scene-ui" id="sceneUI" hidden>
@@ -526,12 +571,6 @@ function box(x, y, w, h, fill, line) {
   px(x, y, w, h, fill);
 }
 const hx = c => [parseInt(c.slice(1,3),16), parseInt(c.slice(3,5),16), parseInt(c.slice(5,7),16)];
-function mix(a, b, t) {
-  const A = hx(a), B = hx(b);
-  return "rgb(" + Math.round(A[0]+(B[0]-A[0])*t) + "," +
-                  Math.round(A[1]+(B[1]-A[1])*t) + "," +
-                  Math.round(A[2]+(B[2]-A[2])*t) + ")";
-}
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const ease  = t => t < .5 ? 2*t*t : 1 - Math.pow(-2*t+2, 2)/2;
 const easeOut = t => 1 - Math.pow(1 - t, 3);
@@ -543,15 +582,18 @@ function rnd() { _seed = (_seed * 1103515245 + 12345) & 0x7fffffff; return _seed
 /* ==================================================================
    ③  調色盤（黃昏 → 白天）
    ================================================================== */
-const SKY_DUSK = ["#2a1d47","#3b2758","#5b356e","#8a4577","#c05f7e","#e8846f"];
-const SKY_DAY  = ["#4fa8e0","#63bae8","#7fcbf0","#a0dbf5","#c4e8f8","#e6f6fd"];
-const HILL_FAR   = ["#2c2350","#5fa8b8"];
-const HILL_NEAR  = ["#28324f","#3f8f6a"];
-const GRASS_TOP  = ["#2f5f42","#6cc75c"];
-const GRASS_BOT  = ["#22452f","#48a047"];
-const DIRT       = ["#4a3a30","#c9a173"];
-const DIRT_2     = ["#3a2c25","#a8814f"];
-const CLOUD      = ["#7a5f8e","#ffffff"];
+/* 天空用 7 段色階 + 4×4 有序抖動，漸層才不會是一條一條的硬邊 */
+const SKY = ["#3f9ada","#54abe3","#6bbaeb","#87ccf1","#a6dbf7","#c7eafb","#e8f7fe"];
+const BAYER = [[0,8,2,10],[12,4,14,6],[3,11,1,9],[15,7,13,5]];
+/* 這裡就要宣告：applyMetrics() 在下面立刻執行，會用到它 */
+let skyImg = null;
+
+const HILL_FAR   = "#74b9c6", HILL_FAR_RIM  = "#9ad7e0";
+const HILL_NEAR  = "#3f9668", HILL_NEAR_RIM = "#63bd8a";
+const GRASS_TOP  = "#78d165", GRASS_MID = "#5cb955", GRASS_BOT = "#3f9445";
+const GRASS_FG   = "#2f7a3d";
+const DIRT       = "#cba676", DIRT_2 = "#a8814f", DIRT_HI = "#dcbb8d";
+const CLOUD      = "#ffffff", CLOUD_SHADE = "#cfe4f5";
 
 const INK    = "#241528";
 const BEAR   = "#c98a5b";
@@ -595,6 +637,7 @@ function applyMetrics() {
   ENV_CY = Math.round(H * 0.55);
   CRD_W = Math.round(ENV_W * 0.88);             // 卡片要塞得進信封
   CRD_H = Math.round(ENV_H * 0.84);
+  buildSky();                                   // 天空要重新抖動
 }
 applyMetrics();
 
@@ -633,18 +676,21 @@ function initWorld() {
     const r = rnd();
     deco.push({
       x,
-      kind: r < .34 ? "tuft" : r < .58 ? "flower" : r < .8 ? "pebble" : "tuft2",
+      kind: r < .30 ? "tuft" : r < .64 ? "flower" : r < .82 ? "pebble" : "tuft2",
       c: BALLOON_COLORS[Math.floor(rnd() * BALLOON_COLORS.length)],
-      y: rnd()
+      y: rnd(),
+      r: rnd()          // 花朵冒出來的門檻，越小越早出現
     });
   }
   desserts.forEach(d => { d.bite = 0; d.gone = false; });
   confetti = []; crumbs = []; fireworks = [];
 }
 
+/* 陣列要備到最滿的量，實際畫幾顆由 drawBalloons 依進度決定 */
+const balloonMax = () => Math.round(BALLOON_N * 1.7);
 function refillBalloons() {
   balloons = [];
-  for (let i = 0; i < BALLOON_N; i++) addBalloon(true);
+  for (let i = 0; i < balloonMax(); i++) addBalloon(true);
 }
 
 function addBalloon(spread, fast) {
@@ -661,125 +707,185 @@ function addBalloon(spread, fast) {
 /* ==================================================================
    ⑤  背景
    ================================================================== */
-function drawSky() {
-  const d = state.day;
-  const bandH = Math.ceil(H / SKY_DUSK.length);
-  for (let i = 0; i < SKY_DUSK.length; i++)
-    px(0, i * bandH, W, bandH + 1, mix(SKY_DUSK[i], SKY_DAY[i], d));
-
-  // 星星 + 月亮（黃昏才有）
-  if (d < 0.98) {
-    ctx.globalAlpha = 1 - d;
-    _seed = 777;
-    for (let i = 0; i < 34; i++) {
-      const sx = Math.round(rnd() * W), sy = Math.round(rnd() * 78);
-      const tw = 0.55 + 0.45 * Math.sin(state.t / 480 + i);
-      ctx.globalAlpha = (1 - d) * tw;
-      px(sx, sy, 1, 1, "#fff4de");
+/* 抖動過的天空只在畫面尺寸改變時算一次，之後直接貼上 */
+function buildSky() {
+  const c = document.createElement("canvas");
+  c.width = W; c.height = H;
+  const g = c.getContext("2d");
+  const img = g.createImageData(W, H);
+  const d = img.data;
+  const cols = SKY.map(hx);
+  const seg = (H * 0.82) / (cols.length - 1);
+  for (let y = 0; y < H; y++) {
+    let p = y / seg;
+    if (p > cols.length - 1) p = cols.length - 1;
+    const i = Math.min(cols.length - 2, Math.floor(p));
+    const t = p - i, a = cols[i], b = cols[i + 1];
+    for (let x = 0; x < W; x++) {
+      const col = t > (BAYER[y & 3][x & 3] + 0.5) / 16 ? b : a;
+      const k = (y * W + x) * 4;
+      d[k] = col[0]; d[k + 1] = col[1]; d[k + 2] = col[2]; d[k + 3] = 255;
     }
-    ctx.globalAlpha = 1 - d;
-    disc(SKY_OBJ_X + 2, 30, 9, "#fff0c9");          // 月
-    disc(SKY_OBJ_X + 7, 26, 8, mix(SKY_DUSK[1], SKY_DAY[1], d));
-    ctx.globalAlpha = 1;
   }
+  g.putImageData(img, 0, 0);
+  skyImg = c;
+}
 
-  // 太陽（白天才有）
-  if (d > 0.02) {
-    ctx.globalAlpha = d;
-    const sy = 34;
-    disc(SKY_OBJ_X, sy, 12, "#fff3b0");
-    disc(SKY_OBJ_X, sy, 9, "#ffd15c");
-    for (let a = 0; a < 8; a++) {
-      const an = a * Math.PI / 4 + state.t / 4000;
-      px(SKY_OBJ_X + Math.cos(an) * 17, sy + Math.sin(an) * 17, 2, 2, "#fff3b0");
-    }
-    ctx.globalAlpha = 1;
+function drawSky() {
+  if (skyImg) ctx.drawImage(skyImg, 0, 0);
+
+  const sx = SKY_OBJ_X, sy = 34;
+  ctx.globalAlpha = .14; disc(sx, sy, 21, "#fff3b0");   // 外圈光暈
+  ctx.globalAlpha = .22; disc(sx, sy, 16, "#fff3b0");
+  ctx.globalAlpha = 1;
+  disc(sx, sy, 12, "#fff6c8");
+  disc(sx, sy, 9, "#ffd15c");
+  disc(sx - 3, sy - 4, 3, "#fff8dc");                   // 高光
+  for (let a = 0; a < 8; a++) {
+    const an = a * Math.PI / 4 + state.t / 4000;
+    const r = 17 + Math.sin(state.t / 620 + a) * 1.5;
+    px(sx + Math.cos(an) * r, sy + Math.sin(an) * r, 2, 2, "#fff3b0");
   }
 }
 
 function drawClouds() {
-  const c = mix(CLOUD[0], CLOUD[1], state.day);
   const span = W + 120;
   clouds.forEach(cl => {
     let x = ((cl.x - state.camX * 0.22) % span + span) % span - 60;
     const s = cl.s;
-    ell(x, cl.y, 9 * s, 4 * s, c);
-    ell(x - 7 * s, cl.y + 2, 6 * s, 3 * s, c);
-    ell(x + 8 * s, cl.y + 2, 5 * s, 3 * s, c);
-    px(x - 13 * s, cl.y + 2, 27 * s, 3 * s, c);
+    // 先畫下緣的陰影面，再疊上亮面，雲才有體積
+    ell(x, cl.y + 2, 9 * s, 4 * s, CLOUD_SHADE);
+    ell(x - 7 * s, cl.y + 4, 6 * s, 3 * s, CLOUD_SHADE);
+    ell(x + 8 * s, cl.y + 4, 5 * s, 3 * s, CLOUD_SHADE);
+    px(x - 13 * s, cl.y + 3, 27 * s, 3 * s, CLOUD_SHADE);
+    ell(x, cl.y, 9 * s, 4 * s, CLOUD);
+    ell(x - 7 * s, cl.y + 2, 6 * s, 3 * s, CLOUD);
+    ell(x + 8 * s, cl.y + 2, 5 * s, 3 * s, CLOUD);
+    px(x - 13 * s, cl.y + 2, 27 * s, 2 * s, CLOUD);
   });
 }
 
 function drawBalloons(dt) {
-  balloons.forEach(b => {
+  // 顯示的顆數也隨進度增加，天空越來越滿
+  const n = Math.min(balloons.length, Math.round(BALLOON_N * (0.8 + 0.85 * rich())));
+  for (let i = 0; i < n; i++) {
+    const b = balloons[i];
     b.y -= b.v * dt / 1000 * (RM ? .4 : 1);
     if (b.y < -30) { b.y = H + 14 + Math.random() * 60; b.x = Math.random() * BALLOON_SPAN - 20; }
     const x = Math.round(b.x - state.camX * 0.5 + Math.sin(state.t / 900 + b.ph) * 4);
-    if (x < -20 || x > W + 20) return;
+    if (x < -20 || x > W + 20) continue;
     const y = Math.round(b.y);
-    // 線
-    for (let i = 0; i < 11; i++)
-      px(x + Math.round(Math.sin(i / 3 + b.ph) * 1.4), y + b.r + 2 + i, 1, 1, "#5c4a72");
+    for (let k = 0; k < 11; k++)                    // 線
+      px(x + Math.round(Math.sin(k / 3 + b.ph) * 1.4), y + b.r + 2 + k, 1, 1, "#4d7f92");
     ellO(x, y, b.r, b.r + 1, b.c, INK);
+    ctx.globalAlpha = .22;                          // 底部暗面
+    ell(x, y + 2, b.r - 1, b.r - 1, "#1b2b33");
+    ctx.globalAlpha = 1;
     px(x - 1, y + b.r + 1, 3, 2, INK);
-    px(x - b.r + 2, y - b.r + 1, 2, 2, "rgba(255,255,255,.6)");   // 高光
-  });
+    px(x - b.r + 2, y - b.r + 1, 2, 2, "rgba(255,255,255,.75)");   // 高光
+    px(x - b.r + 2, y - b.r + 3, 1, 1, "rgba(255,255,255,.45)");
+  }
 }
 
+/* 每座山先畫一顆亮色，再把本色往下偏移 2px 蓋上去，
+   露出來的那 2px 就是山脊上的反光 */
 function drawHills() {
-  const far  = mix(HILL_FAR[0],  HILL_FAR[1],  state.day);
-  const near = mix(HILL_NEAR[0], HILL_NEAR[1], state.day);
   const spanF = W + 200;
   for (let i = 0; i < 4; i++) {
-    let x = ((i * 110 + 30 - state.camX * 0.3) % spanF + spanF) % spanF - 100;
-    ell(x, GRASS_Y + 6, 66, 26, far);
+    const x = ((i * 110 + 30 - state.camX * 0.3) % spanF + spanF) % spanF - 100;
+    ell(x, GRASS_Y + 6, 66, 26, HILL_FAR_RIM);
+    ell(x, GRASS_Y + 8, 66, 26, HILL_FAR);
   }
   const spanN = W + 160;
   for (let i = 0; i < 5; i++) {
-    let x = ((i * 92 - state.camX * 0.55) % spanN + spanN) % spanN - 80;
-    ell(x, GRASS_Y + 10, 48, 20, near);
+    const x = ((i * 92 - state.camX * 0.55) % spanN + spanN) % spanN - 80;
+    ell(x, GRASS_Y + 10, 48, 20, HILL_NEAR_RIM);
+    ell(x, GRASS_Y + 12, 48, 20, HILL_NEAR);
   }
 }
 
+/* 熊吃得越多，世界越熱鬧（0 → 1） */
+const rich = () => bear.fat;
+
 function drawGround() {
-  const gt = mix(GRASS_TOP[0], GRASS_TOP[1], state.day);
-  const gb = mix(GRASS_BOT[0], GRASS_BOT[1], state.day);
-  const d1 = mix(DIRT[0], DIRT[1], state.day);
-  const d2 = mix(DIRT_2[0], DIRT_2[1], state.day);
-  const fg = mix("#1d4530", "#3f8f43", state.day);
+  px(0, GRASS_Y, W, 3, GRASS_TOP);              // 地平線亮邊
+  px(0, GRASS_Y + 3, W, 7, GRASS_MID);          // 中間調
+  px(0, GRASS_Y + 10, W, PATH_Y - GRASS_Y - 10, GRASS_BOT);
+  px(0, PATH_Y - 1, W, 1, "#2f7a3d");           // 草與路的交界
+  px(0, PATH_Y, W, PATH_H, DIRT);               // 小路
+  px(0, PATH_Y, W, 1, DIRT_HI);
+  px(0, FG_Y - 1, W, 1, DIRT_2);
+  px(0, FG_Y, W, H - FG_Y, GRASS_FG);           // 前景草（製造景深）
 
-  px(0, GRASS_Y, W, 4, gt);                 // 地平線亮邊
-  px(0, GRASS_Y + 4, W, PATH_Y - GRASS_Y, gb);
-  px(0, PATH_Y, W, PATH_H, d1);             // 小路
-  px(0, PATH_Y, W, 1, d2);
-  px(0, FG_Y - 1, W, 1, d2);
-  px(0, FG_Y, W, H - FG_Y, fg);             // 前景草（製造景深）
-
-  // 草叢、花、石頭
+  const r = rich();
   deco.forEach(o => {
     const x = Math.round(o.x - state.camX);
     if (x < -8 || x > W + 8) return;
     if (o.kind === "tuft") {
-      px(x, GRASS_Y - 2, 1, 3, gt); px(x + 1, GRASS_Y - 3, 1, 4, gt); px(x + 2, GRASS_Y - 1, 1, 2, gt);
+      px(x, GRASS_Y - 2, 1, 3, GRASS_TOP);
+      px(x + 1, GRASS_Y - 3, 1, 4, GRASS_TOP);
+      px(x + 2, GRASS_Y - 1, 1, 2, GRASS_TOP);
     } else if (o.kind === "tuft2") {
-      px(x, GRASS_Y + 7 + Math.round(o.y * 9), 3, 1, gt);
+      px(x, GRASS_Y + 7 + Math.round(o.y * 9), 3, 1, GRASS_TOP);
     } else if (o.kind === "flower") {
+      if (o.r > 0.26 + 0.74 * r) return;        // 花會隨進度一朵一朵長出來
       const fy = GRASS_Y + 3 + Math.round(o.y * 9);
-      px(x + 1, fy + 2, 1, 4, gt);
+      px(x + 1, fy + 2, 1, 4, GRASS_BOT);
       px(x + 1, fy, 1, 1, o.c); px(x, fy + 1, 3, 1, o.c); px(x + 1, fy + 2, 1, 1, o.c);
       px(x + 1, fy + 1, 1, 1, CREAM);
     } else {
-      px(x, PATH_Y + 4 + Math.round(o.y * (PATH_H - 7)), 2, 1, d2);
+      px(x, PATH_Y + 4 + Math.round(o.y * (PATH_H - 7)), 2, 1, DIRT_2);
+      px(x, PATH_Y + 3 + Math.round(o.y * (PATH_H - 7)), 2, 1, DIRT_HI);
     }
   });
 
-  // 前景草的葉尖
+  // 前景草的葉尖（視差比地面快，景深更明顯）
   deco.forEach(o => {
     if (o.kind !== "tuft") return;
     const x = Math.round(o.x * 1.4 - state.camX * 1.35);
     if (x < -6 || x > W + 6) return;
-    px(x, FG_Y - 3, 1, 4, fg); px(x + 1, FG_Y - 5, 1, 6, fg); px(x + 2, FG_Y - 2, 1, 3, fg);
+    px(x, FG_Y - 3, 1, 4, GRASS_FG); px(x + 1, FG_Y - 5, 1, 6, GRASS_FG);
+    px(x + 2, FG_Y - 2, 1, 3, GRASS_FG);
   });
+}
+
+/* 彩旗：每吃掉一個甜點就多掛一串 */
+function drawBunting() {
+  const n = Math.round(rich() * DESSERT_X.length);
+  for (let i = 0; i < n; i++) {
+    const L = 118, x0 = DESSERT_X[i] + 52 - state.camX, y0 = 20 + (i % 2) * 7, sag = 15;
+    if (x0 > W + 10 || x0 + L < -10) continue;
+    for (let k = 0; k <= L; k += 1) {
+      const t = k / L;
+      px(x0 + k, y0 + Math.sin(t * Math.PI) * sag, 1, 1, "#2c5866");
+    }
+    for (let f = 0; f < 7; f++) {
+      const t = (f + 0.5) / 7;
+      const fx = Math.round(x0 + t * L), fy = Math.round(y0 + Math.sin(t * Math.PI) * sag);
+      if (fx < -6 || fx > W + 6) continue;
+      const c = BALLOON_COLORS[(i * 3 + f) % BALLOON_COLORS.length];
+      tri(fx - 4, fy, fx + 4, fy, fx, fy + 10, INK);
+      tri(fx - 3, fy + 1, fx + 3, fy + 1, fx, fy + 8, c);
+    }
+  }
+}
+
+/* 蝴蝶：吃到一半以後才會飛出來 */
+function drawButterflies() {
+  const n = Math.round(rich() * 6);
+  for (let i = 0; i < n; i++) {
+    const bx = DESSERT_X[i % DESSERT_X.length] + 90;
+    const x = Math.round(bx + Math.sin(state.t / 980 + i * 2.1) * 26 - state.camX);
+    if (x < -8 || x > W + 8) continue;
+    const y = Math.round(GRASS_Y - 12 + Math.sin(state.t / 610 + i * 1.3) * 9);
+    const c = BALLOON_COLORS[(i * 2 + 1) % BALLOON_COLORS.length];
+    px(x, y, 1, 2, INK);
+    if (Math.sin(state.t / 85 + i) > 0) {
+      px(x - 3, y - 1, 3, 2, c); px(x + 2, y - 1, 3, 2, c);
+    } else {
+      px(x - 2, y - 2, 2, 3, c); px(x + 2, y - 2, 2, 3, c);
+    }
+  }
 }
 
 /* ==================================================================
@@ -1052,11 +1158,11 @@ function drawBigCake(x, by) {
 function drawBackdrop(a) {
   if (a <= 0) return;
   ctx.globalAlpha = a;
-  px(0, 0, W, H, "#1e1533");
+  px(0, 0, W, H, "#101f26");                       // 深青的桌面
   const cx = Math.round(W / 2), cy = Math.round(H * 0.52);
   for (let i = 6; i >= 1; i--) {
     ctx.globalAlpha = a * 0.055;
-    ell(cx, cy, Math.round(W * 0.13 * i), Math.round(H * 0.11 * i), "#7d5690");
+    ell(cx, cy, Math.round(W * 0.13 * i), Math.round(H * 0.11 * i), "#a8794f");  // 暖色燈光
   }
   _seed = 4242;                                   // 幾顆會呼吸的微光
   for (let i = 0; i < 18; i++) {
@@ -1253,7 +1359,7 @@ function update(dt) {
 
   if (s.scene === "opening") {
     const p = s.at / (3400 * spd);
-    if (p > .30 && balloons.length < BALLOON_N) for (let i = 0; i < 4; i++) addBalloon(false, true);
+    if (p > .30 && balloons.length < balloonMax()) for (let i = 0; i < 4; i++) addBalloon(false, true);
     if (p >= 1) startWalk();
   }
 
@@ -1294,7 +1400,7 @@ function update(dt) {
       bear.mood = "happy";
       if (!RM && confetti.length < 40) spawnConfetti(6);
       if (!RM && Math.random() < dt / 900) spawnFirework();
-      if (balloons.length < BALLOON_N) addBalloon(false);
+      if (balloons.length < balloonMax()) addBalloon(false);
     }
     if (bear.hop > 0) bear.hop = Math.max(0, bear.hop - dt / 420);
   }
@@ -1327,9 +1433,11 @@ function render(dt) {
     ctx.translate(0, Math.round(s.camY));      // 世界整體上移，讓出對話框的位置
     drawSky();
     drawClouds();
+    if (s.scene === "walk" || s.scene === "finale") drawBunting();
     drawBalloons(dt);
     drawHills();
     drawGround();
+    if (s.scene === "walk" || s.scene === "finale") drawButterflies();
 
     if (s.scene === "walk" || s.scene === "finale") {
       desserts.forEach((d, i) => {          // 甜點 + 大蛋糕
