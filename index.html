@@ -399,13 +399,11 @@
         <span class="who">最後一句</span>
         <span id="endText"></span>
       </div>
-      <div class="row">
-        <button class="btn ghost" id="replayBtn" type="button">再看一次</button>
-      </div>
+      <p class="sub">想再看一次的話，重新整理這個頁面就可以了。</p>
     </section>
   </div>
 
-  <p class="foot">點畫面可以讓熊跳一下</p>
+  <p class="foot" id="foot" hidden>點畫面可以讓熊跳一下</p>
 </div>
 
 <noscript>
@@ -540,15 +538,22 @@ const DESSERT_X = [150, 340, 530, 730, 930, 1120];
 const CAKE_X    = 1330;
 
 /* 這些都跟畫面寬度有關，W 一變就要重算 */
-let CAM_MAX, CAM_LEAD, BALLOON_SPAN, BALLOON_N, ENV_X, GATE_BEAR_X, SKY_OBJ_X;
+let CAM_MAX, CAM_LEAD, BALLOON_SPAN, BALLOON_N, SKY_OBJ_X;
+let ENV_W, ENV_H, ENV_CX, ENV_CY, CRD_W, CRD_H;
 function applyMetrics() {
   CAM_MAX      = WORLD_W - W;
   CAM_LEAD     = Math.round(W * 0.37);          // 熊在畫面上的位置
   BALLOON_SPAN = W + CAM_MAX * 0.5 + 40;        // 氣球視差 0.5，只有這段會被看到
   BALLOON_N    = Math.min(120, Math.round(BALLOON_SPAN / W * 20));  // 每個畫面固定約 20 顆
-  ENV_X        = Math.round(W * 0.60);          // 信封／卡片
-  GATE_BEAR_X  = Math.round(W * 0.20);          // 解謎時熊站的位置
   SKY_OBJ_X    = W - 54;                        // 太陽／月亮
+
+  // 信封佔滿畫面：先照寬度算，太高就改照高度算回來
+  ENV_H = Math.min(Math.round(W * 0.72 * 0.62), Math.round(H * 0.64));
+  ENV_W = Math.round(ENV_H / 0.62);
+  ENV_CX = Math.round(W / 2);
+  ENV_CY = Math.round(H * 0.55);
+  CRD_W = Math.round(ENV_W * 0.88);             // 卡片要塞得進信封
+  CRD_H = Math.round(ENV_H * 0.84);
 }
 applyMetrics();
 
@@ -564,7 +569,7 @@ const state = {
   tries: 0
 };
 
-const bear = { x: 60, phase: 0, hop: 0, mood: "idle", blinkAt: 0 };
+const bear = { x: 60, phase: 0, hop: 0, mood: "idle", blinkAt: 0, fat: 0 };
 const desserts = DESSERT_X.map((x, i) => ({
   x, kind: CONFIG.wishes[i] ? CONFIG.wishes[i].dessert : "donut",
   bite: 0, gone: false
@@ -737,58 +742,72 @@ function drawGround() {
 /* ==================================================================
    ⑥  熊
    ================================================================== */
+/* 吃掉幾個甜點就胖幾分（0 = 原本身材，1 = 全部吃完） */
+function fatness() {
+  return desserts.filter(d => d.gone).length / desserts.length;
+}
+
 function drawBear(bx, by, opts) {
   opts = opts || {};
   const walk = opts.walk || 0;             // 走路相位
   const mood = opts.mood || "idle";        // idle | eat | happy | look
+  const f = clamp(opts.fat || 0, 0, 1);    // 胖度
   const s = Math.sin(walk);
   const bob = Math.round(Math.abs(s) * 1.5);
   by = Math.round(by - (opts.lift || 0));
 
   const cx = Math.round(bx);
-  const bodyY = by - 13 - bob;
+  // 身體變寬變厚，重心跟著往下沉一點
+  const brx = 9 + f * 6, bry = 8 + f * 3.5;
+  const bodyY = by - 13 - bob + Math.round(f * 1.5);
+  const armX  = Math.round(brx + 1);
 
   // 影子
   ctx.globalAlpha = .22;
-  ell(cx, by + 1, 11, 2, "#000");
+  ell(cx, by + 1, 11 + f * 5, 2, "#000");
   ctx.globalAlpha = 1;
 
-  // 腿
-  const l1 = Math.round(s * 3.2), l2 = Math.round(-s * 3.2);
-  box(cx - 6 + l1, by - 7, 5, 7, BEAR_D, INK);
-  box(cx + 2 + l2, by - 7, 5, 7, BEAR, INK);
+  // 腿（越胖分越開，也越粗）
+  const spread = Math.round(f * 2.5);
+  const legW = 5 + Math.round(f * 2);
+  const l1 = Math.round(s * 3.2 * (1 - f * 0.45));
+  const l2 = -l1;
+  box(cx - 6 - spread + l1, by - 7, legW, 7, BEAR_D, INK);
+  box(cx + 2 + spread + l2, by - 7, legW, 7, BEAR, INK);
 
   // 身體
-  ellO(cx, bodyY, 9, 8, BEAR, INK);
-  ell(cx, bodyY + 2, 6, 5, BEAR_L);
+  ellO(cx, bodyY, brx, bry, BEAR, INK);
+  ell(cx, bodyY + 2, 6 + f * 4.5, 5 + f * 2.5, BEAR_L);
 
   // 手
-  const a1 = Math.round(-s * 2.6);
+  const a1 = Math.round(-s * 2.6 * (1 - f * 0.4));
   if (mood === "happy") {
-    ellO(cx - 10, bodyY - 8, 3, 3, BEAR_D, INK);
-    ellO(cx + 10, bodyY - 8, 3, 3, BEAR_D, INK);
+    ellO(cx - armX - 1, bodyY - 8, 3, 3, BEAR_D, INK);
+    ellO(cx + armX + 1, bodyY - 8, 3, 3, BEAR_D, INK);
   } else if (mood === "eat") {
-    ellO(cx + 8, bodyY - 3, 3, 3, BEAR_D, INK);
-    ellO(cx - 9, bodyY + a1, 3, 3, BEAR_D, INK);
+    ellO(cx + armX - 1, bodyY - 3, 3, 3, BEAR_D, INK);
+    ellO(cx - armX, bodyY + a1, 3, 3, BEAR_D, INK);
   } else {
-    ellO(cx - 9, bodyY + a1, 3, 3, BEAR_D, INK);
-    ellO(cx + 9, bodyY - a1, 3, 3, BEAR_D, INK);
+    ellO(cx - armX, bodyY + a1, 3, 3, BEAR_D, INK);
+    ellO(cx + armX, bodyY - a1, 3, 3, BEAR_D, INK);
   }
 
-  // 頭
-  const hy = bodyY - 12;
-  ellO(cx - 7, hy - 5, 4, 4, BEAR_D, INK);       // 耳
-  ellO(cx + 7, hy - 5, 4, 4, BEAR_D, INK);
-  disc(cx - 7, hy - 5, 2, CANDY);
-  disc(cx + 7, hy - 5, 2, CANDY);
-  ellO(cx, hy, 9, 8, BEAR, INK);
+  // 頭（跟著圓一點，但幅度比身體小，才不會變成球）
+  const hrx = 9 + f * 2, hry = 8 + f * 1.8;
+  const hy = bodyY - 12 - Math.round(f * 2.5);
+  const earX = Math.round(hrx - 2);
+  ellO(cx - earX, hy - 5, 4, 4, BEAR_D, INK);       // 耳
+  ellO(cx + earX, hy - 5, 4, 4, BEAR_D, INK);
+  disc(cx - earX, hy - 5, 2, CANDY);
+  disc(cx + earX, hy - 5, 2, CANDY);
+  ellO(cx, hy, hrx, hry, BEAR, INK);
 
   // 派對帽
-  tri(cx - 4, hy - 8, cx + 5, hy - 8, cx + 1, hy - 20, INK);
-  tri(cx - 3, hy - 8, cx + 4, hy - 8, cx + 1, hy - 19, CANDY);
-  px(cx - 2, hy - 13, 5, 1, BUTTER);
-  px(cx - 1, hy - 16, 3, 1, BUTTER);
-  disc(cx + 1, hy - 20, 2, BUTTER);
+  tri(cx - 4, hy - hry, cx + 5, hy - hry, cx + 1, hy - hry - 12, INK);
+  tri(cx - 3, hy - hry + 1, cx + 4, hy - hry + 1, cx + 1, hy - hry - 11, CANDY);
+  px(cx - 2, hy - hry - 5, 5, 1, BUTTER);
+  px(cx - 1, hy - hry - 8, 3, 1, BUTTER);
+  disc(cx + 1, hy - hry - 12, 2, BUTTER);
 
   // 口鼻
   ell(cx + 1, hy + 3, 5, 4, BEAR_L);
@@ -801,8 +820,9 @@ function drawBear(bx, by, opts) {
     px(cx - 6, hy - 2, 2, 3, INK); px(cx + 4, hy - 2, 2, 3, INK);
     px(cx - 6, hy - 2, 1, 1, CREAM); px(cx + 4, hy - 2, 1, 1, CREAM);
   }
-  px(cx - 9, hy + 2, 2, 1, CANDY);   // 腮紅
-  px(cx + 8, hy + 2, 2, 1, CANDY);
+  const chk = Math.round(hrx - 1);                       // 腮紅跟著臉變寬
+  px(cx - chk - 1, hy + 2, 2 + Math.round(f), 1, CANDY);
+  px(cx + chk - 1, hy + 2, 2 + Math.round(f), 1, CANDY);
 
   // 嘴
   if (mood === "eat") {
@@ -906,59 +926,95 @@ function drawBigCake(x, by) {
 /* ==================================================================
    ⑧  信封 / 卡片
    ================================================================== */
+/* 「一封信」階段的底：深色桌面 + 一圈暖光，讓信是唯一的主角 */
+function drawBackdrop(a) {
+  if (a <= 0) return;
+  ctx.globalAlpha = a;
+  px(0, 0, W, H, "#1e1533");
+  const cx = Math.round(W / 2), cy = Math.round(H * 0.52);
+  for (let i = 6; i >= 1; i--) {
+    ctx.globalAlpha = a * 0.055;
+    ell(cx, cy, Math.round(W * 0.13 * i), Math.round(H * 0.11 * i), "#7d5690");
+  }
+  _seed = 4242;                                   // 幾顆會呼吸的微光
+  for (let i = 0; i < 18; i++) {
+    const sx = Math.round(rnd() * W), sy = Math.round(rnd() * H);
+    ctx.globalAlpha = a * (0.12 + 0.26 * (0.5 + 0.5 * Math.sin(state.t / 760 + i * 1.7)));
+    px(sx, sy, 1, 1, "#ffe6b8");
+  }
+  ctx.globalAlpha = 1;
+}
+
 /* layer: "back" = 紙身＋內襯＋掀起的封口（畫在卡片後面）
           "front" = 前口袋＋摺線＋郵票（畫在卡片前面，卡片才像插在裡面）
-          "all"   = 信封關著的樣子                                   */
-function drawEnvelope(cx, cy, flap, sealOn, layer) {
+          "all"   = 信封關著的樣子
+   尺寸用參數傳，才能隨畫面大小放大成「整頁就是一封信」 */
+function drawEnvelope(cx, cy, w, h, flap, sealOn, layer) {
   layer = layer || "all";
-  const w = 104, h = 66;
+  w = Math.round(w); h = Math.round(h);
+  cx = Math.round(cx);
   const x = Math.round(cx - w / 2), y = Math.round(cy - h / 2);
-  const pocket = y + 26;
+  const pocket = y + Math.round(h * 0.39);
+  const lip = Math.max(2, Math.round(h * 0.045));
 
   if (layer !== "front") {
+    // 桌面上的影子
+    ctx.globalAlpha = .3;
+    ell(cx, y + h + Math.round(h * 0.06), Math.round(w * 0.52), Math.max(2, Math.round(h * 0.05)), "#0d0718");
+    ctx.globalAlpha = 1;
     box(x, y, w, h, "#fff4de", INK);
-    if (flap > 0.05) px(x + 1, y + 1, w - 2, 26, "#8f6f9c");   // 內襯
+    if (flap > 0.05) px(x + 1, y + 1, w - 2, Math.round(h * 0.39), "#8f6f9c");   // 內襯
   }
 
   if (layer !== "back") {
     px(x - 1, pocket - 1, w + 2, y + h - pocket + 2, INK);      // 前口袋
     px(x, pocket, w, y + h - pocket, "#f9ebcc");
-    px(x, y + h - 3, w, 3, "#e8d3ae");
+    px(x, y + h - lip, w, lip, "#e8d3ae");
     ctx.strokeStyle = "#e0c9a4"; ctx.lineWidth = 1;             // 摺線
     ctx.beginPath();
-    ctx.moveTo(x + .5, y + h - .5); ctx.lineTo(cx, pocket + 15);
+    ctx.moveTo(x + .5, y + h - .5); ctx.lineTo(cx, pocket + Math.round(h * 0.22));
     ctx.lineTo(x + w - .5, y + h - .5); ctx.stroke();
     // 郵票：小熊頭
-    px(x + w - 22, y + h - 22, 16, 16, "#f2dfba");
-    px(x + w - 21, y + h - 21, 14, 14, "#ffd7e6");
-    const sx = x + w - 14, sy = y + h - 14;
-    disc(sx - 4, sy - 4, 2, BEAR_D); disc(sx + 4, sy - 4, 2, BEAR_D);
-    disc(sx, sy, 5, BEAR);
-    px(sx - 2, sy - 1, 1, 1, INK); px(sx + 2, sy - 1, 1, 1, INK);
-    px(sx, sy + 2, 2, 1, "#4a2f22");
+    const sw = Math.max(14, Math.round(w * 0.155)), sm = Math.round(w * 0.055);
+    const px0 = x + w - sw - sm, py0 = y + h - sw - sm;
+    px(px0, py0, sw, sw, "#f2dfba");
+    px(px0 + 1, py0 + 1, sw - 2, sw - 2, "#ffd7e6");
+    const sx = Math.round(px0 + sw / 2), sy = Math.round(py0 + sw / 2);
+    const er = Math.max(2, Math.round(sw * 0.15));
+    disc(sx - er * 2, sy - er * 2, er, BEAR_D); disc(sx + er * 2, sy - er * 2, er, BEAR_D);
+    disc(sx, sy, Math.round(sw * 0.3), BEAR);
+    px(sx - er, sy - er, er, er, INK); px(sx + er, sy - er, er, er, INK);
+    px(sx, sy + er, er, Math.max(1, er - 1), "#4a2f22");
   }
 
   if (layer !== "front") {
-    const apexY = y + h * 0.62 - flap * (h * 0.62 + 30);        // 封口
+    const apexY = y + h * 0.62 - flap * (h * 0.62 + h * 0.45);  // 封口
     tri(x, y, x + w, y, cx, apexY, INK);
     tri(x + 1, y + 1, x + w - 1, y + 1, cx, apexY - 1.5, flap > .5 ? "#e8d3ae" : "#f5e3c0");
   }
 
   if (sealOn && layer !== "back") {
-    disc(cx, y + h * 0.56, 7, "#d94f76");
-    disc(cx, y + h * 0.56, 5, CANDY);
-    const hxp = cx - 2, hyp = y + h * 0.56 - 2;                 // 愛心
-    px(hxp, hyp, 2, 2, "#fff4de"); px(hxp + 3, hyp, 2, 2, "#fff4de");
-    px(hxp, hyp + 2, 5, 1, "#fff4de"); px(hxp + 1, hyp + 3, 3, 1, "#fff4de");
-    px(hxp + 2, hyp + 4, 1, 1, "#fff4de");
+    const r = Math.max(7, Math.round(w * 0.075));
+    const sy = y + Math.round(h * 0.56);
+    disc(cx, sy, r, "#d94f76");
+    disc(cx, sy, r - 2, CANDY);
+    // 愛心：5×5 的像素圖樣，小尺寸也認得出來
+    const u = Math.max(1, Math.round(r / 5));
+    const hx0 = cx - Math.round(u * 2.5), hy0 = sy - Math.round(u * 2.5);
+    const HEART = [".X.X.", "XXXXX", "XXXXX", ".XXX.", "..X.."];
+    for (let ry = 0; ry < 5; ry++)
+      for (let rx = 0; rx < 5; rx++)
+        if (HEART[ry][rx] === "X") px(hx0 + rx * u, hy0 + ry * u, u, u, "#fff4de");
   }
 }
 
 /* 折好的卡片，open 0→1 = 封面往左掀開 */
-const CARD_W = 94, CARD_H = 64;
-function drawCard(cx, cy, open, ribbon) {
-  const w = CARD_W, h = CARD_H;
+function drawCard(cx, cy, w, h, open, ribbon) {
+  w = Math.round(w); h = Math.round(h);
+  cx = Math.round(cx);
   const x = Math.round(cx - w / 2), y = Math.round(cy - h / 2);
+  const k = w / 94;                                  // 相對基準尺寸的縮放
+  const R = v => Math.max(1, Math.round(v * k));
 
   // 內頁
   box(x, y, w, h, "#fffaf0", INK);
@@ -967,8 +1023,9 @@ function drawCard(cx, cy, open, ribbon) {
     px(x, y, w, h, "#fff8d8");                       // 內頁光暈
     ctx.globalAlpha = Math.min(1, open * 1.8);
     for (let i = 0; i < 4; i++)
-      px(x + 10, y + 16 + i * 9, (w - 28) * (0.55 + (i % 3) * 0.15), 2, "#e2cdae");
-    disc(x + w - 17, y + 17, 4, CANDY);
+      px(x + R(10), y + Math.round(h * 0.25) + i * Math.round(h * 0.14),
+         Math.round((w - R(28)) * (0.55 + (i % 3) * 0.15)), Math.max(2, R(2)), "#e2cdae");
+    disc(x + w - R(17), y + Math.round(h * 0.27), R(4), CANDY);
     ctx.globalAlpha = 1;
   }
 
@@ -981,23 +1038,26 @@ function drawCard(cx, cy, open, ribbon) {
     if (open < 0.42) {
       const bcx = Math.round(x + cw / 2), bcy = y + Math.round(h * 0.38);
       ctx.globalAlpha = 1 - open / 0.42;
-      disc(bcx - 6, bcy - 9, 3, BEAR_D); disc(bcx + 6, bcy - 9, 3, BEAR_D);
-      disc(bcx, bcy - 4, 8, BEAR);
-      px(bcx - 4, bcy - 6, 2, 2, INK); px(bcx + 3, bcy - 6, 2, 2, INK);
-      ell(bcx + 1, bcy - 1, 4, 3, BEAR_L);
-      px(bcx, bcy - 2, 2, 1, "#4a2f22");
-      px(bcx - 9, bcy - 4, 2, 1, CANDY); px(bcx + 8, bcy - 4, 2, 1, CANDY);
+      disc(bcx - R(6), bcy - R(9), R(3), BEAR_D); disc(bcx + R(6), bcy - R(9), R(3), BEAR_D);
+      disc(bcx, bcy - R(4), R(8), BEAR);
+      px(bcx - R(4), bcy - R(6), R(2), R(2), INK); px(bcx + R(3), bcy - R(6), R(2), R(2), INK);
+      ell(bcx + R(1), bcy - R(1), R(4), R(3), BEAR_L);
+      px(bcx, bcy - R(2), R(2), Math.max(1, R(1)), "#4a2f22");
+      px(bcx - R(9), bcy - R(4), R(2), R(1), CANDY); px(bcx + R(8), bcy - R(4), R(2), R(1), CANDY);
       ctx.globalAlpha = 1;
     }
   }
 
   if (ribbon > 0) {
     const ry = y + Math.round(h * 0.74);       // 緞帶壓在下方，不擋住熊的臉
+    const bh = Math.max(5, Math.round(h * 0.11));
+    const br = Math.max(4, Math.round(w * 0.065));
     ctx.globalAlpha = ribbon;
-    px(x - 1, ry - 5, w + 2, 9, "#d94f76");
-    px(x, ry - 4, w, 7, CANDY);
-    disc(cx, ry, 6, "#d94f76");
-    disc(cx - 5, ry - 1, 4, CANDY); disc(cx + 5, ry - 1, 4, CANDY);
+    px(x - 1, ry - Math.round(bh / 2) - 1, w + 2, bh + 2, "#d94f76");
+    px(x, ry - Math.round(bh / 2), w, bh, CANDY);
+    disc(cx, ry, br, "#d94f76");
+    disc(cx - br, ry - 1, Math.round(br * .7), CANDY);
+    disc(cx + br, ry - 1, Math.round(br * .7), CANDY);
     px(cx - 1, ry - 1, 2, 2, "#fff4de");
     ctx.globalAlpha = 1;
   }
@@ -1071,8 +1131,7 @@ function update(dt) {
 
   if (s.scene === "opening") {
     const p = s.at / (3400 * spd);
-    s.day = clamp((p - 0.30) / 0.42, 0, 1);
-    if (p > .46 && balloons.length < BALLOON_N) for (let i = 0; i < 4; i++) addBalloon(false, true);
+    if (p > .30 && balloons.length < BALLOON_N) for (let i = 0; i < 4; i++) addBalloon(false, true);
     if (p >= 1) startWalk();
   }
 
@@ -1115,64 +1174,79 @@ function update(dt) {
     if (bear.hop > 0) bear.hop = Math.max(0, bear.hop - dt / 420);
   }
 
+  // 胖度平滑跟上：吃完一個會看到牠慢慢鼓起來，而不是瞬間變形
+  if (s.scene === "walk" || s.scene === "finale") {
+    const target = fatness();
+    bear.fat += (target - bear.fat) * Math.min(1, dt / 300);
+  }
+
   if (s.flash > 0) s.flash = Math.max(0, s.flash - dt / (420 * spd));
 }
 
 function render(dt) {
   const s = state;
   ctx.clearRect(0, 0, W, H);
-  drawSky();
-  drawClouds();
-  drawBalloons(dt);
-  drawHills();
-  drawGround();
 
-  // 甜點 + 大蛋糕
-  if (s.scene === "walk" || s.scene === "finale") {
-    desserts.forEach((d, i) => {
-      const sx = d.x - s.camX;
-      if (sx < -24 || sx > W + 24) return;
-      if (i === s.idx && s.mode === "eating") drawDessertBitten(d, sx);
-      else if (!d.gone) drawDessert(d.kind, sx, GROUND_Y + 1);
-    });
-    const cakeSx = CAKE_X - s.camX;
-    if (cakeSx > -40 && cakeSx < W + 40) drawBigCake(cakeSx, GROUND_Y + 1);
+  // 前三個場景是「一封信」，完全不畫世界
+  const letter = s.scene === "gate1" || s.scene === "letterOut" || s.scene === "gate2";
+
+  if (!letter) {
+    drawSky();
+    drawClouds();
+    drawBalloons(dt);
+    drawHills();
+    drawGround();
+
+    if (s.scene === "walk" || s.scene === "finale") {
+      desserts.forEach((d, i) => {          // 甜點 + 大蛋糕
+        const sx = d.x - s.camX;
+        if (sx < -24 || sx > W + 24) return;
+        if (i === s.idx && s.mode === "eating") drawDessertBitten(d, sx);
+        else if (!d.gone) drawDessert(d.kind, sx, GROUND_Y + 1);
+      });
+      const cakeSx = CAKE_X - s.camX;
+      if (cakeSx > -40 && cakeSx < W + 40) drawBigCake(cakeSx, GROUND_Y + 1);
+
+      const lift = bear.hop > 0 ? Math.sin(bear.hop * Math.PI) * 12 : 0;
+      drawBear(bear.x - s.camX, GROUND_Y,
+               { walk: bear.phase, mood: bear.mood, lift, fat: bear.fat });
+    }
   }
 
-  // 熊
-  const lift = bear.hop > 0 ? Math.sin(bear.hop * Math.PI) * 12 : 0;
-  if (s.scene === "gate1" || s.scene === "letterOut" || s.scene === "gate2") {
-    drawBear(GATE_BEAR_X, GROUND_Y, { walk: 0, mood: s.scene === "gate2" ? "happy" : "look", lift });
-  } else if (s.scene === "opening") {
-    drawBear(GATE_BEAR_X, GROUND_Y, { walk: 0, mood: "happy", lift });
-  } else {
-    drawBear(bear.x - s.camX, GROUND_Y, { walk: bear.phase, mood: bear.mood, lift });
-  }
+  // 信的底色；卡片打開時淡出，世界才浮現
+  if (letter) drawBackdrop(1);
+  else if (s.scene === "opening")
+    drawBackdrop(1 - clamp((s.at / (3400 * spd) - 0.14) / 0.34, 0, 1));
 
   // 場景道具
   if (s.scene === "gate1") {
     const bob = Math.sin(s.t / 700) * 2;
-    drawEnvelope(ENV_X, 74 + bob, 0, true);
+    drawEnvelope(ENV_CX, ENV_CY + bob, ENV_W, ENV_H, 0, true);
   } else if (s.scene === "letterOut") {
     const p = clamp(s.at / (2500 * spd), 0, 1);
     const flap  = clamp(p / 0.26, 0, 1);
     const rise  = clamp((p - 0.24) / 0.44, 0, 1);
     const drop  = clamp((p - 0.66) / 0.34, 0, 1);
-    const envY  = 74 + easeOut(drop) * 170;
+    const envY  = ENV_CY + easeOut(drop) * (H * 1.15);
     // 蠟印彈開飛走
     if (p < 0.32) {
       const q = p / 0.32;
       ctx.globalAlpha = 1 - q;
-      disc(ENV_X + q * 40, 92 - q * 34 + q * q * 52, 6, CANDY);
+      disc(ENV_CX + q * W * 0.22, ENV_CY + ENV_H * 0.06 - q * H * 0.22 + q * q * H * 0.4,
+           Math.max(5, Math.round(ENV_W * 0.06)), CANDY);
       ctx.globalAlpha = 1;
     }
     // 信封後半 → 卡片 → 信封前口袋，卡片才像從裡面被抽出來
-    drawEnvelope(ENV_X, envY, flap, false, "back");
-    if (rise > 0) drawCard(ENV_X, 96 - easeOut(rise) * 46 + easeOut(drop) * 24, 0, 1);
-    drawEnvelope(ENV_X, envY, flap, false, "front");
+    const cyIn = ENV_CY + ENV_H * 0.16, cyOut = ENV_CY - ENV_H * 0.44, cyRest = H / 2;
+    drawEnvelope(ENV_CX, envY, ENV_W, ENV_H, flap, false, "back");
+    if (rise > 0)
+      drawCard(ENV_CX,
+               cyIn + (cyOut - cyIn) * easeOut(rise) + (cyRest - cyOut) * easeOut(drop),
+               CRD_W, CRD_H, 0, 1);
+    drawEnvelope(ENV_CX, envY, ENV_W, ENV_H, flap, false, "front");
   } else if (s.scene === "gate2") {
     const bob = Math.sin(s.t / 700) * 2;
-    drawCard(ENV_X, 74 + bob, 0, 1);
+    drawCard(ENV_CX, H / 2 + bob, CRD_W, CRD_H, 0, 1);
   } else if (s.scene === "opening") {
     const p = clamp(s.at / (3400 * spd), 0, 1);
     const ribbon = clamp(1 - p / 0.16, 0, 1);
@@ -1182,27 +1256,25 @@ function render(dt) {
     if (p < 0.3 && p > 0.05) {
       const q = (p - .05) / .25;
       ctx.globalAlpha = 1 - q;
-      px(ENV_X - 30 - q * 40, 74 + q * q * 90, 12, 4, CANDY);
-      px(ENV_X + 20 + q * 40, 74 + q * q * 70, 12, 4, "#d94f76");
+      px(ENV_CX - CRD_W * 0.35 - q * 40, H / 2 + q * q * 90, 12, 4, CANDY);
+      px(ENV_CX + CRD_W * 0.25 + q * 40, H / 2 + q * q * 70, 12, 4, "#d94f76");
       ctx.globalAlpha = 1;
     }
     ctx.save();
-    ctx.translate(ENV_X - (ENV_X - W / 2) * ease(grow), 74 - (74 - 84) * ease(grow));
+    ctx.translate(W / 2, H / 2 + ease(grow) * H * 0.06);
     const sc = 1 + ease(grow) * 1.9;
     ctx.scale(sc, sc);
-    drawCard(0, 0, open, ribbon);
+    drawCard(0, 0, CRD_W, CRD_H, open, ribbon);
     ctx.restore();
-    // 光線（只灑在天空，不要蓋到地面）
+    // 從卡片裡灑出來的光
     if (open > .4) {
-      ctx.save();
-      ctx.beginPath(); ctx.rect(0, 0, W, GRASS_Y); ctx.clip();
-      ctx.globalAlpha = (open - .4) / .6 * .4 * (1 - grow);
+      ctx.globalAlpha = (open - .4) / .6 * .38 * (1 - grow);
       for (let a = 0; a < 10; a++) {
         const an = a * Math.PI / 5 + s.t / 2600;
-        tri(ENV_X, 74, ENV_X + Math.cos(an) * 150, 74 + Math.sin(an) * 150,
-                       ENV_X + Math.cos(an + .11) * 150, 74 + Math.sin(an + .11) * 150, "#fff8d8");
+        tri(W / 2, H / 2, W / 2 + Math.cos(an) * 190, H / 2 + Math.sin(an) * 190,
+                          W / 2 + Math.cos(an + .11) * 190, H / 2 + Math.sin(an + .11) * 190, "#fff8d8");
       }
-      ctx.restore();
+      ctx.globalAlpha = 1;
     }
     if (grow > .82) { ctx.globalAlpha = (grow - .82) / .18; px(0, 0, W, H, "#fff8e4"); ctx.globalAlpha = 1; }
   }
@@ -1415,6 +1487,7 @@ function startWalk() {
   state.day = 1; state.idx = 0;
   bear.x = 30; bear.phase = 0;
   refillBalloons();          // 讓天空一開始就滿是氣球
+  el("foot").hidden = false; // 有熊了，才提示可以點牠
   showPanel("wait");
   el("waitLede").textContent = "天亮了，熊往前走去。路上有六個甜點。";
   setPips();
@@ -1449,21 +1522,22 @@ function showEnd() {
   el("endText").textContent = CONFIG.ending;
   el("eyebrow").textContent = CONFIG.to ? "給 " + CONFIG.to : "生日快樂";
   showPanel("end");
-  el("replayBtn").focus({ preventScroll: true });
 }
-el("replayBtn").addEventListener("click", reset);
 
+/* 只在載入時跑一次；跑完整個流程後會停在最後一頁，重新整理才會從頭開始 */
 function reset() {
   state.scene = "gate1"; state.mode = "idle"; state.gate = 1;
-  state.day = 0; state.idx = 0; state.camX = 0; state.at = 0; state.tries = 0; state.flash = 0;
-  bear.x = 60; bear.phase = 0; bear.hop = 0; bear.mood = "look";
+  state.day = 1;         // 世界永遠是白天了；黃昏改成信本身的深色底
+  state.idx = 0; state.camX = 0; state.at = 0; state.tries = 0; state.flash = 0;
+  bear.x = 60; bear.phase = 0; bear.hop = 0; bear.mood = "look"; bear.fat = 0;
   initWorld();
   showPanel("gate");
   el("gateLede").textContent = CONFIG.lede1;
   el("openBtn").textContent = "解開";
   el("gateMsg").textContent = ""; el("gateMsg").className = "msg";
   el("codeInput").value = ""; renderSlots(); setPips();
-  cv.setAttribute("aria-label", "黃昏的草地，小熊旁邊漂著一封封起來的信");
+  el("foot").hidden = true;
+  cv.setAttribute("aria-label", "一封用蠟封起來的信");
 }
 
 /* 點畫面讓熊跳一下 */
