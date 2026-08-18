@@ -485,12 +485,6 @@
   }
   .shot .btn { text-decoration: none; display: inline-flex; align-items: center; }
 
-  .foot {
-    font-size: 11px;
-    color: #6f5b93;
-    letter-spacing: .1em;
-    text-align: center;
-  }
 
   @media (max-width: 560px) {
     :root { --u: 4px; }
@@ -498,7 +492,6 @@
     .bezel { padding: 6px; }
     .btn { padding: 11px 16px; font-size: 15px; }
     .pxbox-in { padding: 8px 10px 12px; }
-    .foot { font-size: 10px; }
   }
   @media (max-width: 360px) {
     :root { --u: 3px; }
@@ -525,7 +518,6 @@
     .pxbox-text { font-size: 14px; line-height: 1.5; }
     .pxbox-title { font-size: 22px; }
     .btn { min-height: 44px; padding: 9px 14px; }
-    .foot { display: none; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -550,7 +542,7 @@
 
       <!-- 壯狗登場的蓋版畫面 -->
       <div class="cutin" id="cutin" hidden>
-        <span class="cutin-in">大棕熊壯狗狗<br />來救你了
+        <span class="cutin-in">壯狗狗<br />來救你了
           <span class="cutin-tap">點一下繼續 ▶</span>
         </span>
       </div>
@@ -601,7 +593,6 @@
     </section>
   </div>
 
-  <p class="foot" id="foot" hidden>點畫面熊才會前進；點吉娃娃牠會回你話</p>
 </div>
 
 <div class="shot" id="shot" hidden>
@@ -1368,6 +1359,8 @@ function drawDessertBitten(d, sx) {
 
 /* 蛋糕右邊那隻超壯的狗：兩腳站立、肩膀很寬、會把熊抱起來 */
 const DOG = "#dd9350", DOG_D = "#ac6528", DOG_L = "#fff4e2", DOG_MUZ = "#fffaf0";
+/* 身體是 swole doge 那種淡奶油色的肌肉，跟頭上的赤色分開 */
+const DOG_M = "#ecdcb2", DOG_M_D = "#c9b482", DOG_M_L = "#fdf3d8";
 const dog = { hop: 0, bark: 0, sym: 0 };
 
 /* 被點到時冒出來的像素符號 */
@@ -1406,50 +1399,70 @@ function drawBuffDog(x, by, opts) {
 
   ctx.globalAlpha = .24; ell(cx, by + 1 + hop, 14, 2, "#000"); ctx.globalAlpha = 1;
 
-  // 又短又粗的腿，柴犬的白襪
+  // 又粗又壯的腿
   const lg = Math.round(sw * 3.4);
-  box(cx - 9 + lg, by - 9, 7, 9, DOG_D, INK);
-  box(cx + 3 - lg, by - 9, 7, 9, DOG, INK);
-  px(cx - 9 + lg, by - 3, 7, 3, DOG_L);
-  px(cx + 3 - lg, by - 3, 7, 3, DOG_L);
+  box(cx - 10 + lg, by - 12, 8, 12, DOG_M, INK);
+  box(cx + 3 - lg, by - 12, 8, 12, DOG_M, INK);
+  px(cx - 10 + lg, by - 12, 1, 12, DOG_M_D);      // 大腿的溝
+  px(cx + 10 - lg, by - 12, 1, 12, DOG_M_D);
+  px(cx - 10 + lg, by - 3, 8, 3, DOG_M_L);        // 腳掌
+  px(cx + 3 - lg, by - 3, 8, 3, DOG_M_L);
 
-  const ty = by - 22 - bob;                       // 軀幹
+  const ty = by - 25 - bob;                       // 軀幹
 
-  // 柴犬的捲尾：往上翹再繞回來
+  // 柴犬的捲尾
   const wag = Math.sin(state.t / (dog.bark > 0 ? 70 : 190)) * 2;
-  const tx = cx - 14, tyy = ty + 3 + Math.round(wag);
+  const tx = cx - 15, tyy = ty + 5 + Math.round(wag);
   ellO(tx - 3, tyy - 7, 4, 5, DOG, INK);
   ell(tx - 3, tyy - 7, 2, 3, DOG_L);
   px(tx, tyy - 2, 3, 3, DOG_D);
 
-  ellO(cx, ty + 6, 8, 5, DOG_D, INK);             // 細腰
-  ellO(cx, ty - 2, 15, 8, DOG, INK);              // 超寬的肩
-  ell(cx, ty + 1, 9, 5, DOG_L);                   // 奶油色胸腹（柴犬的裏白）
-  px(cx, ty - 7, 1, 9, DOG_D);                    // 胸中線
-  px(cx - 8, ty - 6, 5, 1, DOG_D);
-  px(cx + 4, ty - 6, 5, 1, DOG_D);
+  ellO(cx, ty + 8, 9, 5, DOG_M, INK);             // 骨盆
+  ellO(cx, ty - 1, 16, 10, DOG_M, INK);           // 超寬的胸廓
 
-  // 手臂
+  // 胸肌
+  ellO(cx - 7, ty - 5, 7, 4, DOG_M, DOG_M_D);
+  ellO(cx + 7, ty - 5, 7, 4, DOG_M, DOG_M_D);
+  px(cx - 13, ty - 2, 26, 1, DOG_M_D);            // 胸下緣
+  px(cx, ty - 10, 1, 20, DOG_M_D);                // 正中線
+
+  // 六塊腹肌
+  for (let r2 = 0; r2 < 3; r2++) {
+    const ay = ty + 1 + r2 * 3;
+    px(cx - 6, ay, 5, 2, DOG_M_L);
+    px(cx + 2, ay, 5, 2, DOG_M_L);
+    px(cx - 6, ay + 2, 13, 1, DOG_M_D);
+  }
+  px(cx - 11, ty + 1, 3, 6, DOG_M_D);             // 兩側的腹外斜肌
+  px(cx + 9, ty + 1, 3, 6, DOG_M_D);
+
+  // 手臂：上臂鼓一大塊，前臂再一塊
   if (pose === "carry") {                         // 雙手舉過頭
-    ellO(cx - 12, ty - 8, 4, 6, DOG_D, INK);
-    ellO(cx + 12, ty - 8, 4, 6, DOG_D, INK);
-    ellO(cx - 11, ty - 19, 4, 7, DOG, INK);
-    ellO(cx + 11, ty - 19, 4, 7, DOG, INK);
-    ellO(cx - 10, ty - 27, 4, 3, DOG_L, INK);     // 手掌托著
-    ellO(cx + 10, ty - 27, 4, 3, DOG_L, INK);
+    ellO(cx - 13, ty - 9, 5, 7, DOG_M, INK);
+    ellO(cx + 13, ty - 9, 5, 7, DOG_M, INK);
+    ellO(cx - 12, ty - 21, 5, 8, DOG_M, INK);
+    ellO(cx + 12, ty - 21, 5, 8, DOG_M, INK);
+    ellO(cx - 11, ty - 30, 4, 3, DOG_M_L, INK);   // 手掌托著
+    ellO(cx + 11, ty - 30, 4, 3, DOG_M_L, INK);
+    px(cx - 13, ty - 24, 1, 6, DOG_M_D);
+    px(cx + 13, ty - 24, 1, 6, DOG_M_D);
   } else if (pose === "flex") {
-    ellO(cx - 16, ty - 4, 5, 6, DOG_D, INK);
-    ellO(cx + 16, ty - 4, 5, 6, DOG_D, INK);
-    ellO(cx - 14, ty - 13, 6, 5, DOG, INK);
-    ellO(cx + 14, ty - 13, 6, 5, DOG, INK);
-    px(cx - 16, ty - 15, 3, 1, DOG_L);
-    px(cx + 14, ty - 15, 3, 1, DOG_L);
+    ellO(cx - 17, ty - 4, 5, 7, DOG_M, INK);
+    ellO(cx + 17, ty - 4, 5, 7, DOG_M, INK);
+    ellO(cx - 15, ty - 15, 7, 6, DOG_M, INK);     // 鼓起來的二頭肌
+    ellO(cx + 15, ty - 15, 7, 6, DOG_M, INK);
+    px(cx - 18, ty - 17, 4, 1, DOG_M_L);
+    px(cx + 15, ty - 17, 4, 1, DOG_M_L);
+    px(cx - 15, ty - 12, 7, 1, DOG_M_D);
+    px(cx + 9, ty - 12, 7, 1, DOG_M_D);
   } else {
     const a = Math.round(-sw * 2.6);
-    ellO(cx - 16, ty - 1 + a, 5, 7, DOG, INK);
-    ellO(cx + 16, ty - 1 - a, 5, 7, DOG, INK);
-    px(cx - 18, ty - 5 + a, 2, 2, DOG_D);
-    px(cx + 17, ty - 5 - a, 2, 2, DOG_D);
+    ellO(cx - 17, ty - 3 + a, 6, 8, DOG_M, INK);  // 上臂
+    ellO(cx + 17, ty - 3 - a, 6, 8, DOG_M, INK);
+    px(cx - 19, ty - 7 + a, 1, 7, DOG_M_D);       // 二頭／三頭的分界
+    px(cx + 18, ty - 7 - a, 1, 7, DOG_M_D);
+    ellO(cx - 18, ty + 8 + a, 4, 5, DOG_M, INK);  // 前臂
+    ellO(cx + 18, ty + 8 - a, 4, 5, DOG_M, INK);
   }
 
   // 柴犬的頭：立耳、寬臉、奶油色的臉頰與吻部
@@ -2472,7 +2485,6 @@ function startWalk() {
   state.day = 1; state.idx = 0;
   bear.x = 30; bear.phase = 0;
   refillBalloons();          // 讓天空一開始就滿是氣球
-  el("foot").hidden = false; // 有熊了，才提示可以點牠
   state.stuckAt = null; state.fallAt = null; state.pendingFinale = false; bear.push = 0;
   bigDog.active = false; bigDog.carrying = false; bigDog.x = 0; bigDog.phase = 0;
   el("cutin").hidden = true;
@@ -2576,7 +2588,6 @@ function showEnd() {
   if (!bigDog.active) { bigDog.active = true; bigDog.x = DOG_X; }  // 保險：結尾一定有狗
   el("eyebrow").textContent = CONFIG.to ? "給 " + CONFIG.to : "生日快樂";
   showSceneDialog(CONFIG.ending, { title: "生日快樂", last: true });
-  el("foot").hidden = true;          // 走完了，操作提示收起來
   showPanel("end");
   el("replayBtn").focus({ preventScroll: true });
 }
@@ -2725,7 +2736,6 @@ function reset() {
   el("openBtn").textContent = "解開";
   el("gateMsg").textContent = ""; el("gateMsg").className = "msg";
   el("codeInput").value = ""; renderSlots(); setPips();
-  el("foot").hidden = true;
   cv.setAttribute("aria-label", "一封用蠟封起來的信");
 }
 
