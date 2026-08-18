@@ -657,7 +657,7 @@ const CONFIG = {
 /* 高度固定 180，寬度會依螢幕比例調整：
    直式手機拿到比較窄的畫面（像素變大），橫躺時變寬。 */
 let W = 320;
-const H = 180;
+let H = 180;
 const cv = document.getElementById("screen");
 const ctx = cv.getContext("2d");
 cv.width = W; cv.height = H;
@@ -741,11 +741,16 @@ const BALLOON_COLORS = ["#ff8fb1","#ffd15c","#7fe3c9","#c9a7e8","#ff9e6d","#8fd0
    ④  世界設定
    ================================================================== */
 const WORLD_W  = 1560;
-const GRASS_Y  = 132;            // 地平線（草地上緣）
-const PATH_Y   = 150;            // 小路
-const PATH_H   = 18;
-const GROUND_Y = 156;            // 熊腳底（踩在小路上）
-const FG_Y     = PATH_Y + PATH_H; // 前景草
+/* 這些跟著 H 等比例，畫面拉高時天空變大、地面比例不變 */
+let GRASS_Y, PATH_Y, PATH_H, GROUND_Y, FG_Y;
+function applyGround() {
+  GRASS_Y  = Math.round(H * 0.733);   // 地平線（草地上緣）
+  PATH_Y   = Math.round(H * 0.833);   // 小路
+  PATH_H   = Math.round(H * 0.100);
+  GROUND_Y = Math.round(H * 0.867);   // 熊腳底（踩在小路上）
+  FG_Y     = PATH_Y + PATH_H;         // 前景草
+}
+applyGround();
 const DESSERT_X = [150, 340, 530, 730, 930, 1120];
 const CAKE_X    = 1330;
 const DOG_X     = 1366;          // 吉娃娃坐在蛋糕右邊
@@ -756,6 +761,7 @@ const FINALE_CX  = 1326;         // 結尾鏡頭對準三者的正中間
 let CAM_MAX, CAM_LEAD, BALLOON_SPAN, BALLOON_N, SKY_OBJ_X;
 let ENV_W, ENV_H, ENV_CX, ENV_CY, CRD_W, CRD_H;
 function applyMetrics() {
+  applyGround();
   CAM_MAX      = WORLD_W - W;
   CAM_LEAD     = Math.round(W * 0.37);          // 熊在畫面上的位置
   BALLOON_SPAN = W + CAM_MAX * 0.5 + 40;        // 氣球視差 0.5，只有這段會被看到
@@ -796,6 +802,7 @@ const state = {
 const bigDog = { x: 0, phase: 0, active: false, carrying: false };
 
 const bear = { x: 60, phase: 0, hop: 0, mood: "idle", blinkAt: 0, fat: 0, push: 0 };
+let walkBoost = 1;               // 手機上加速用
 /* 洗牌後抽 treatCount 個，鮭魚保證入選，位置再各自抖一下 */
 function rollDesserts() {
   const shuffle = a => {
@@ -1868,7 +1875,7 @@ function update(dt) {
     } else if (s.mode === "walking") {
       const target = desserts[s.idx].x - 23;   // 站遠一點，甜點才不會被熊擋住
       if (bear.push > 0) bear.push = Math.max(0, bear.push - dt / 520);
-      const speed = 62 * (RM ? 2.2 : 1) * (1 + bear.push * 1.5);
+      const speed = 62 * walkBoost * (RM ? 2.2 : 1) * (1 + bear.push * 1.5);
       bear.x = Math.min(target, bear.x + speed * dt / 1000);
       bear.phase += dt / 1000 * 7.5 * (1 + bear.push);
       bear.mood = "idle";
@@ -1886,7 +1893,7 @@ function update(dt) {
       bear.mood = "fallen";
     } else if (s.mode === "dogRun") {        // 壯狗跑過來
       const t = bear.x - 17;
-      bigDog.x = Math.min(t, bigDog.x + 155 * dt / 1000);
+      bigDog.x = Math.min(t, bigDog.x + 155 * walkBoost * dt / 1000);
       bigDog.phase += dt / 1000 * 12;
       if (bigDog.x >= t - 0.5) { s.mode = "lift"; s.at = 0; sfx("push"); }
     } else if (s.mode === "lift") {          // 把熊抱起來
@@ -1897,7 +1904,7 @@ function update(dt) {
         s.afterCarry = "eat";
       }
     } else if (s.mode === "carry") {         // 抱著走
-      bigDog.x = Math.min(s.carryTarget, bigDog.x + 56 * dt / 1000);
+      bigDog.x = Math.min(s.carryTarget, bigDog.x + 56 * walkBoost * dt / 1000);
       bigDog.phase += dt / 1000 * 6.2;
       bear.x = bigDog.x + 4;
       if (bigDog.x >= s.carryTarget - 0.5) {
@@ -1937,7 +1944,7 @@ function update(dt) {
     }
 
     if (s.mode === "toCake") {
-      bear.x = Math.min(BEAR_END_X, bear.x + 66 * dt / 1000);
+      bear.x = Math.min(BEAR_END_X, bear.x + 66 * walkBoost * dt / 1000);
       bear.phase += dt / 1000 * 7.5;
       bear.mood = "idle";
       if (bear.x >= BEAR_END_X - 0.4) { s.mode = "celebrate"; s.at = 0; spawnConfetti(RM ? 20 : 70); sfx("fanfare"); showEnd(); }
@@ -2333,11 +2340,19 @@ function layout() {
   const chromeH = Math.max(0, cabinetEl.offsetHeight - bezelEl.offsetHeight);
   const availH = Math.max(110, window.innerHeight - chromeH - padY - 26);
 
-  let w = Math.ceil(availW * H / availH);
-  w = Math.round(clamp(w, 200, 384) / 2) * 2;
+  // 先挑一個放大倍率（手機約 2 倍），再由可用空間反推邏輯寬高，
+  // 這樣上下左右都吃得滿，而不是只被寬度限制住。
+  let w = Math.round(clamp(Math.round(availW / 2), 168, 400) / 2) * 2;
+  const sc = availW / w;
+  // 高度別超過寬度的 1.45 倍，不然畫面會瘦長到只剩天空
+  let h = Math.min(Math.round(availH / sc), Math.round(w * 1.45));
+  h = Math.round(clamp(h, 160, 300) / 2) * 2;
 
-  if (w !== W) {
-    W = w;
+  // 手機上讓熊走快一點（畫面窄，捲動看起來會偏慢）
+  walkBoost = window.innerWidth <= 560 ? 1.3 : 1;
+
+  if (w !== W || h !== H) {
+    W = w; H = h;
     cv.width = W; cv.height = H;        // 改尺寸會重置 context
     ctx.imageSmoothingEnabled = false;
     applyMetrics();
