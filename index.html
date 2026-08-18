@@ -1359,32 +1359,24 @@ function drawDessertBitten(d, sx) {
 const DOG = "#dd9350", DOG_D = "#ac6528", DOG_L = "#fff4e2", DOG_MUZ = "#fffaf0";
 /* 身體是 swole doge 那種淡奶油色的肌肉，跟頭上的赤色分開 */
 const DOG_M = "#ecdcb2", DOG_M_D = "#c9b482", DOG_M_L = "#fdf3d8";
-const dog = { hop: 0, bark: 0, sym: 0 };
+const dog = { hop: 0, bark: 0, hearts: 0 };
 
-/* 被點到時冒出來的像素符號 */
-const DOG_SYMS = [
-  { c: CANDY,  m: [".X.X.", "XXXXX", "XXXXX", ".XXX.", "..X.."] },   // 愛心
-  { c: MINT,   m: ["..XX.", "..XX.", "..XX.", "XXXX.", "XXXX."] },   // 音符
-  { c: BUTTER, m: ["..X..", ".XXX.", "XXXXX", ".XXX.", ".X.X."] },   // 星星
-  { c: "#ff6f91", m: ["..X..", "..X..", "..X..", ".....", "..X.."] } // 驚嘆號
-];
+/* 被點到時頭上冒出來的愛心，每點一次就大一級 */
+const HEART_M = [".X.X.", "XXXXX", "XXXXX", ".XXX.", "..X.."];
+const heartMax = () => Math.max(4, Math.round(H / 26));
 
-function drawSpeechBubble(cx, cy, sym) {
-  const s = DOG_SYMS[sym % DOG_SYMS.length];
-  const w = 17, h = 15;
-  const x = Math.round(cx - w / 2), y = Math.round(cy - h);
-  px(x - 1, y - 1, w + 2, h + 2, INK);
-  px(x, y, w, h, CREAM);
-  px(cx - 2, y + h, 4, 2, INK);          // 泡泡的小尾巴
-  px(cx - 1, y + h, 2, 1, CREAM);
+function drawHeart(cx, cy, u) {
+  const x0 = Math.round(cx - 5 * u / 2), y0 = Math.round(cy - 5 * u / 2);
   for (let ry = 0; ry < 5; ry++)
     for (let rx = 0; rx < 5; rx++)
-      if (s.m[ry][rx] === "X") px(x + 3 + rx * 2, y + 3 + ry * 2, 2, 2, s.c);
+      if (HEART_M[ry][rx] === "X") px(x0 + rx * u - 1, y0 + ry * u - 1, u + 2, u + 2, INK);
+  for (let ry = 0; ry < 5; ry++)
+    for (let rx = 0; rx < 5; rx++)
+      if (HEART_M[ry][rx] === "X") px(x0 + rx * u, y0 + ry * u, u, u, CANDY);
+  px(x0 + u, y0 + u, u, u, "#ffd4e2");                     // 高光
+  if (u >= 3) px(x0 + u, y0 + 2 * u, Math.max(1, u - 1), u, "#ff6f91");
 }
 
-/* pose: stand（站著）| run（跑過來）| carry（抱著熊）| flex（被點到，秀肌肉） */
-/* 柴犬臉、立耳、捲尾，身材照樣很壯。
-   pose: stand / run / carry（雙手舉過頭扛著熊）/ flex（秀肌肉） */
 function drawBuffDog(x, by, opts) {
   opts = opts || {};
   const pose = opts.pose || "stand";
@@ -1492,7 +1484,11 @@ function drawBuffDog(x, by, opts) {
   px(cx - 8, hy + 8, 17, 1, MINT);
   px(cx - 1, hy + 9, 2, 2, BUTTER);
 
-  if (dog.bark > 0) drawSpeechBubble(cx, hy - 12, dog.sym);
+  if (dog.bark > 0) {
+    const u = 1 + dog.hearts;
+    const bobY = Math.round(Math.sin(state.t / 220) * 2);
+    drawHeart(cx, hy - 12 - u * 2.5 + bobY, u);
+  }
 }
 
 /* 蓋版用的柴犬大頭 + 速度線 */
@@ -2494,6 +2490,7 @@ function startWalk() {
   state.stuckAt = null; state.fallAt = null; state.pendingFinale = false; bear.push = 0;
   bigDog.active = false; bigDog.carrying = false; bigDog.x = 0; bigDog.phase = 0;
   el("cutin").hidden = true;
+  dog.hop = 0; dog.bark = 0; dog.hearts = 0;
   hideSceneDialog();
   showPanel("none");         // 螢幕吃掉整個高度，熊的畫面才是主角
   waitForTap();              // 第一步也要玩家點一下
@@ -2603,7 +2600,7 @@ function showEnd() {
 function replayWalk() {
   rollDesserts();
   bear.fat = 0; bear.hop = 0; bear.mood = "idle";
-  dog.hop = 0; dog.bark = 0;
+  dog.hop = 0; dog.bark = 0; dog.hearts = 0;
   bigDog.active = false; bigDog.carrying = false;
   confetti = []; crumbs = []; fireworks = []; fwParts = [];
   state.camX = 0; state.camY = 0; state.camYTarget = 0;
@@ -2815,7 +2812,7 @@ cv.addEventListener("click", e => {
     if (Math.abs(lx - dx) < 17 && ly > GROUND_Y - 46 && ly < GROUND_Y + 5) {
       if (dog.hop <= 0) dog.hop = 1;
       dog.bark = 1;
-      dog.sym = (dog.sym + 1) % DOG_SYMS.length;
+      dog.hearts = Math.min(dog.hearts + 1, heartMax());   // 每點一次愛心大一級
       sfx("bark");
       return;
     }
