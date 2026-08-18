@@ -504,20 +504,32 @@ const CONFIG = {
   lede1: "有一封信被封起來了，需要第一道密碼。",
   lede2: "信拿出來了，但卡片還鎖著。第二道密碼。",
   hint1: "提示：4 位數字，一個屬於你的日期。",
-  hint2: "提示：再一個日期，就能把卡片打開了。",
-  wishes: [
-    { dessert: "donut",
+  hint2: "提示：小狗狗的日期。",
+
+  /* 甜點池：每次玩會從這裡隨機抽 6 個，位置也會抖動，
+     所以每次走的路都不一樣。鮭魚是熊的最愛，一定會出現。 */
+  treatCount: 6,
+  treats: [
+    { kind: "salmon", always: true, who: "熊熊超開心",
+      text: "鮭魚！熊等這個等很久了。願你今年也常常遇到自己最想要的那一個。" },
+    { kind: "donut",
       text: "甜甜圈中間的洞是留給煩惱的，其他甜的部分都是你的。" },
-    { dessert: "cupcake",
+    { kind: "cupcake",
       text: "願你接下來的每一天，都像剛出爐一樣蓬鬆又柔軟。" },
-    { dessert: "icecream",
+    { kind: "icecream",
       text: "就算世界有時候很燙，也希望你永遠不要融化。" },
-    { dessert: "pudding",
+    { kind: "pudding",
       text: "祝你走路都會遇到好事，像布丁一定會遇到焦糖那樣。" },
-    { dessert: "cake",
+    { kind: "cake",
       text: "最上面那顆草莓，永遠是你的，沒有人可以跟你搶。" },
-    { dessert: "macaron",
-      text: "又長大一歲了，恭喜你把日子過得這麼好。" }
+    { kind: "macaron",
+      text: "又長大一歲了，恭喜你把日子過得這麼好。" },
+    { kind: "honey",
+      text: "願你今年的煩惱都黏在罐子邊，怎麼倒都倒不出來。" },
+    { kind: "cookie",
+      text: "你比你自己以為的還要更耐放，也更受歡迎一點。" },
+    { kind: "taiyaki",
+      text: "希望你每次翻開的那一面，都剛好是有餡的那一面。" }
   ],
   ending: "熊熊已經吃飽了，換你把接下來的一年，一口一口吃成甜的。"
 };
@@ -583,10 +595,13 @@ function rnd() { _seed = (_seed * 1103515245 + 12345) & 0x7fffffff; return _seed
    ③  調色盤（黃昏 → 白天）
    ================================================================== */
 /* 天空用 7 段色階 + 4×4 有序抖動，漸層才不會是一條一條的硬邊 */
-const SKY = ["#3f9ada","#54abe3","#6bbaeb","#87ccf1","#a6dbf7","#c7eafb","#e8f7fe"];
+/* 天空有三組色階，隨著熊吃掉的甜點從白天走到夜晚 */
+const SKY_DAY   = ["#3f9ada","#54abe3","#6bbaeb","#87ccf1","#a6dbf7","#c7eafb","#e8f7fe"];
+const SKY_DUSK  = ["#2c3b78","#4c4088","#7a4685","#ad5580","#e0757a","#f79f76","#ffcf9c"];
+const SKY_NIGHT = ["#04081a","#080e28","#0d1436","#121a44","#182150","#1e295e","#26336c"];
 const BAYER = [[0,8,2,10],[12,4,14,6],[3,11,1,9],[15,7,13,5]];
 /* 這裡就要宣告：applyMetrics() 在下面立刻執行，會用到它 */
-let skyImg = null;
+let skyImg = null, skyPrev = null, skyFade = 1, skyLevel = -1;
 
 const HILL_FAR   = "#74b9c6", HILL_FAR_RIM  = "#9ad7e0";
 const HILL_NEAR  = "#3f9668", HILL_NEAR_RIM = "#63bd8a";
@@ -637,7 +652,7 @@ function applyMetrics() {
   ENV_CY = Math.round(H * 0.55);
   CRD_W = Math.round(ENV_W * 0.88);             // 卡片要塞得進信封
   CRD_H = Math.round(ENV_H * 0.84);
-  buildSky();                                   // 天空要重新抖動
+  skyImg = null; skyPrev = null; skyLevel = -1;  // 天空快取作廢，下一幀重建
 }
 applyMetrics();
 
@@ -656,11 +671,29 @@ const state = {
 };
 
 const bear = { x: 60, phase: 0, hop: 0, mood: "idle", blinkAt: 0, fat: 0 };
-const desserts = DESSERT_X.map((x, i) => ({
-  x, kind: CONFIG.wishes[i] ? CONFIG.wishes[i].dessert : "donut",
-  bite: 0, gone: false
-}));
-let balloons = [], clouds = [], confetti = [], crumbs = [], fireworks = [];
+/* 洗牌後抽 treatCount 個，鮭魚保證入選，位置再各自抖一下 */
+function rollDesserts() {
+  const shuffle = a => {
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  };
+  const must = CONFIG.treats.filter(t => t.always);
+  const rest = shuffle(CONFIG.treats.filter(t => !t.always));
+  const picked = shuffle(must.concat(rest).slice(0, CONFIG.treatCount));
+  desserts = picked.map((t, i) => ({
+    x: DESSERT_X[i] + Math.round((Math.random() - 0.5) * 44),
+    kind: t.kind,
+    text: t.text,
+    who: t.who || "熊熊說",
+    special: !!t.always,
+    bite: 0, gone: false
+  }));
+}
+let desserts = [];
+let balloons = [], clouds = [], confetti = [], crumbs = [], fireworks = [], fwParts = [];
 let deco = [];
 
 function initWorld() {
@@ -682,8 +715,8 @@ function initWorld() {
       r: rnd()          // 花朵冒出來的門檻，越小越早出現
     });
   }
-  desserts.forEach(d => { d.bite = 0; d.gone = false; });
-  confetti = []; crumbs = []; fireworks = [];
+  rollDesserts();                 // 每次重來都換一批甜點
+  confetti = []; crumbs = []; fireworks = []; fwParts = [];
 }
 
 /* 陣列要備到最滿的量，實際畫幾顆由 drawBalloons 依進度決定 */
@@ -707,14 +740,30 @@ function addBalloon(spread, fast) {
 /* ==================================================================
    ⑤  背景
    ================================================================== */
-/* 抖動過的天空只在畫面尺寸改變時算一次，之後直接貼上 */
-function buildSky() {
+/* 入夜程度：熊吃越多天越暗（0 = 正午，1 = 全黑） */
+const night = () => clamp(rich(), 0, 1);
+
+/* 三組色階之間插值，得到當下的天空 */
+function skyRamp(t) {
+  const a = t < 0.5 ? SKY_DAY : SKY_DUSK;
+  const b = t < 0.5 ? SKY_DUSK : SKY_NIGHT;
+  const k = t < 0.5 ? t / 0.5 : (t - 0.5) / 0.5;
+  return a.map((c, i) => {
+    const A = hx(c), B = hx(b[i]);
+    return [Math.round(A[0] + (B[0] - A[0]) * k),
+            Math.round(A[1] + (B[1] - A[1]) * k),
+            Math.round(A[2] + (B[2] - A[2]) * k)];
+  });
+}
+
+/* 抖動過的天空只在尺寸或入夜階段改變時重算，平常直接貼圖 */
+function buildSky(t) {
   const c = document.createElement("canvas");
   c.width = W; c.height = H;
   const g = c.getContext("2d");
   const img = g.createImageData(W, H);
   const d = img.data;
-  const cols = SKY.map(hx);
+  const cols = skyRamp(t);
   const seg = (H * 0.82) / (cols.length - 1);
   for (let y = 0; y < H; y++) {
     let p = y / seg;
@@ -728,23 +777,77 @@ function buildSky() {
     }
   }
   g.putImageData(img, 0, 0);
-  skyImg = c;
+  return c;
+}
+
+/* 把入夜程度切成 12 階，跨階時交叉淡入，看起來就是連續變暗 */
+function ensureSky() {
+  const lvl = Math.round(night() * 12);
+  if (lvl === skyLevel && skyImg) return;
+  skyPrev = skyImg;
+  skyLevel = lvl;
+  skyImg = buildSky(lvl / 12);
+  skyFade = skyPrev ? 0 : 1;
 }
 
 function drawSky() {
-  if (skyImg) ctx.drawImage(skyImg, 0, 0);
+  ensureSky();
+  if (skyPrev && skyFade < 1) {
+    ctx.drawImage(skyPrev, 0, 0);
+    ctx.globalAlpha = skyFade;
+    ctx.drawImage(skyImg, 0, 0);
+    ctx.globalAlpha = 1;
+  } else if (skyImg) {
+    ctx.drawImage(skyImg, 0, 0);
+  }
 
-  const sx = SKY_OBJ_X, sy = 34;
-  ctx.globalAlpha = .14; disc(sx, sy, 21, "#fff3b0");   // 外圈光暈
-  ctx.globalAlpha = .22; disc(sx, sy, 16, "#fff3b0");
-  ctx.globalAlpha = 1;
-  disc(sx, sy, 12, "#fff6c8");
-  disc(sx, sy, 9, "#ffd15c");
-  disc(sx - 3, sy - 4, 3, "#fff8dc");                   // 高光
-  for (let a = 0; a < 8; a++) {
-    const an = a * Math.PI / 4 + state.t / 4000;
-    const r = 17 + Math.sin(state.t / 620 + a) * 1.5;
-    px(sx + Math.cos(an) * r, sy + Math.sin(an) * r, 2, 2, "#fff3b0");
+  const n = night();
+
+  // 星星：入夜一半以後慢慢亮起來
+  if (n > 0.34) {
+    const sa = clamp((n - 0.34) / 0.5, 0, 1);
+    _seed = 1337;
+    for (let i = 0; i < 46; i++) {
+      const stx = Math.round(rnd() * W), sty = Math.round(rnd() * H * 0.62);
+      ctx.globalAlpha = sa * (0.35 + 0.65 * (0.5 + 0.5 * Math.sin(state.t / 520 + i * 1.7)));
+      px(stx, sty, 1, 1, "#fff8e0");
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // 太陽會往下沉、顏色轉紅，沉到地平線下就看不見了
+  const sy = 34 + n * 86;
+  if (sy < GRASS_Y + 12) {
+    const sx = SKY_OBJ_X;
+    const warm = ["#ffd15c", "#ff9a4d", "#ff6f52"][n < .4 ? 0 : n < .75 ? 1 : 2];
+    ctx.globalAlpha = .14; disc(sx, sy, 21 + n * 8, warm);
+    ctx.globalAlpha = .22; disc(sx, sy, 16 + n * 5, warm);
+    ctx.globalAlpha = 1;
+    disc(sx, sy, 12, n < .5 ? "#fff6c8" : "#ffc48a");
+    disc(sx, sy, 9, warm);
+    disc(sx - 3, sy - 4, 3, "#fff8dc");
+    if (n < 0.55) {
+      for (let a = 0; a < 8; a++) {
+        const an = a * Math.PI / 4 + state.t / 4000;
+        const r = 17 + Math.sin(state.t / 620 + a) * 1.5;
+        ctx.globalAlpha = 1 - n / 0.55;
+        px(sx + Math.cos(an) * r, sy + Math.sin(an) * r, 2, 2, "#fff3b0");
+        ctx.globalAlpha = 1;
+      }
+    }
+  }
+
+  // 月亮：太陽下山後從另一邊升起來
+  if (n > 0.42) {
+    const ma = clamp((n - 0.42) / 0.35, 0, 1);
+    const mx = Math.round(W * 0.24), my = Math.round(46 - ma * 20);
+    ctx.globalAlpha = ma * .13; disc(mx, my, 16, "#fff0c9");
+    ctx.globalAlpha = ma;
+    disc(mx, my, 8, "#fff0c9");
+    disc(mx - 3, my - 2, 2, "#e6d4ac");
+    disc(mx + 3, my + 2, 1, "#e6d4ac");
+    disc(mx + 1, my - 4, 1, "#e6d4ac");
+    ctx.globalAlpha = 1;
   }
 }
 
@@ -1030,12 +1133,58 @@ function drawDessert(kind, x, by) {
     disc(x + 4, by - 16, 3, "#e04a5f");
     px(x + 4, by - 19, 1, 2, "#4a8f3a");
     px(x + 3, by - 17, 1, 1, CREAM);
-  } else {  // macaron
+  } else if (kind === "macaron") {
     ellO(x, by - 4, 7, 4, "#c9a7e8", INK);
     ellO(x, by - 11, 7, 4, "#c9a7e8", INK);
     px(x - 6, by - 8, 13, 3, INK);
     px(x - 6, by - 8, 13, 2, "#fff0b0");
     px(x - 5, by - 13, 6, 1, "#e0c9f5");
+
+  } else if (kind === "salmon") {          // 熊的最愛：一整條鮭魚
+    tri(x - 11, by - 10, x - 11, by - 1, x - 5, by - 6, INK);      // 尾鰭
+    tri(x - 10, by - 9, x - 10, by - 2, x - 6, by - 6, "#e8734f");
+    ellO(x + 1, by - 6, 9, 5, "#f2825e", INK);                     // 身體
+    ell(x + 1, by - 8, 8, 2, "#c9553a");                           // 背
+    ell(x + 2, by - 4, 6, 2, "#ffd0b8");                           // 白肚
+    px(x - 4, by - 7, 9, 1, "#ffb090");                            // 側線
+    tri(x - 1, by - 10, x + 4, by - 10, x + 1, by - 14, INK);      // 背鰭
+    tri(x, by - 10, x + 3, by - 10, x + 1, by - 13, "#e8734f");
+    px(x + 7, by - 8, 2, 2, INK);                                  // 眼
+    px(x + 7, by - 8, 1, 1, CREAM);
+    px(x + 9, by - 6, 1, 2, "#c9553a");
+
+  } else if (kind === "honey") {           // 蜂蜜罐
+    px(x - 7, by - 12, 14, 13, INK);
+    px(x - 6, by - 11, 12, 11, "#e8c48a");
+    px(x - 6, by - 11, 12, 4, "#f5a623");                          // 蜜
+    px(x - 6, by - 7, 12, 1, "#d98e12");
+    px(x - 8, by - 15, 16, 4, INK);
+    px(x - 7, by - 14, 14, 2, "#a8794f");                          // 木蓋
+    px(x + 2, by - 7, 2, 4, "#f5a623");                            // 流下來的蜜
+    px(x + 2, by - 3, 2, 2, "#ffc75a");
+    const bz = Math.round(Math.sin(state.t / 160) * 3);            // 繞著飛的蜜蜂
+    px(x - 9 + bz, by - 19, 2, 2, BUTTER);
+    px(x - 9 + bz, by - 19, 1, 2, "#3a2a12");
+    px(x - 10 + bz, by - 20, 1, 1, "rgba(255,255,255,.7)");
+
+  } else if (kind === "cookie") {          // 巧克力餅乾
+    ellO(x, by - 6, 7, 6, "#d9a05b", INK);
+    ell(x, by - 8, 6, 3, "#e8b877");
+    px(x - 3, by - 8, 2, 2, "#5b3a22");
+    px(x + 2, by - 5, 2, 2, "#5b3a22");
+    px(x - 1, by - 3, 2, 2, "#5b3a22");
+    px(x + 3, by - 10, 2, 2, "#5b3a22");
+
+  } else {                                 // 鯛魚燒
+    tri(x - 10, by - 10, x - 10, by - 2, x - 5, by - 6, INK);
+    tri(x - 9, by - 9, x - 9, by - 3, x - 6, by - 6, "#c98a3f");
+    ellO(x + 1, by - 6, 9, 5, "#d9a05b", INK);
+    ell(x + 1, by - 8, 8, 2, "#e8b877");
+    px(x - 3, by - 5, 9, 1, "#b57a34");                            // 烤紋
+    px(x - 3, by - 3, 7, 1, "#b57a34");
+    tri(x, by - 10, x + 4, by - 10, x + 2, by - 13, "#c98a3f");
+    px(x + 7, by - 8, 2, 2, INK);
+    px(x + 7, by - 8, 1, 1, CREAM);
   }
 }
 
@@ -1306,9 +1455,26 @@ function spawnConfetti(n) {
       c: BALLOON_COLORS[Math.floor(Math.random() * BALLOON_COLORS.length)],
       s: 1 + Math.round(Math.random() * 1.4), ph: Math.random() * 6.3 });
 }
+function spawnHearts(wx, wy) {
+  for (let i = 0; i < 7; i++)
+    crumbs.push({ x: wx + (Math.random() - .5) * 10, y: wy,
+      vx: (Math.random() - .5) * 18, vy: -26 - Math.random() * 24,
+      c: i % 2 ? CANDY : "#ff6f91", life: 900 });
+}
 function spawnFirework() {
-  fireworks.push({ x: 40 + Math.random() * (W - 80), y: 24 + Math.random() * 50,
-    r: 0, c: BALLOON_COLORS[Math.floor(Math.random() * BALLOON_COLORS.length)] });
+  const x = 26 + Math.random() * (W - 52);
+  const y = 16 + Math.random() * 58;
+  const cs = BALLOON_COLORS;
+  const c1 = cs[Math.floor(Math.random() * cs.length)];
+  const c2 = cs[Math.floor(Math.random() * cs.length)];
+  fireworks.push({ x, y, flash: 1 });
+  const n = 18 + Math.floor(Math.random() * 10);
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2 + Math.random() * .25;
+    const sp = 17 + Math.random() * 28;
+    fwParts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+                   c: i % 3 === 0 ? c2 : c1, life: 900 + Math.random() * 520, t: 0 });
+  }
 }
 function stepParticles(dt) {
   crumbs = crumbs.filter(p => {
@@ -1325,14 +1491,26 @@ function stepParticles(dt) {
     px(p.x, p.y, w, p.s, p.c);
     return true;
   });
-  fireworks = fireworks.filter(f => {
-    f.r += 46 * dt / 1000;
-    if (f.r > 26) return false;
-    ctx.globalAlpha = Math.max(0, 1 - f.r / 26);
-    for (let a = 0; a < 12; a++) {
-      const an = a * Math.PI / 6;
-      px(f.x + Math.cos(an) * f.r, f.y + Math.sin(an) * f.r * .8, 2, 2, f.c);
-    }
+  fireworks = fireworks.filter(f => {            // 爆開瞬間的白光
+    f.flash -= dt / 170;
+    if (f.flash <= 0) return false;
+    ctx.globalAlpha = Math.max(0, f.flash) * .9;
+    disc(f.x, f.y, 3 + (1 - f.flash) * 6, "#fff8e4");
+    ctx.globalAlpha = 1;
+    return true;
+  });
+  fwParts = fwParts.filter(p => {                // 四散的火花，帶一點重力和尾巴
+    p.t += dt;
+    if (p.t > p.life) return false;
+    p.vy += 30 * dt / 1000;
+    p.vx *= 1 - 0.55 * dt / 1000;
+    p.x += p.vx * dt / 1000;
+    p.y += p.vy * dt / 1000;
+    const k = 1 - p.t / p.life;
+    ctx.globalAlpha = Math.max(0, k);
+    const sz = k > .55 ? 2 : 1;
+    px(p.x, p.y, sz, sz, p.c);
+    if (k > .3) { ctx.globalAlpha = k * .45; px(p.x - p.vx * .014, p.y - p.vy * .014, 1, 1, p.c); }
     ctx.globalAlpha = 1;
     return true;
   });
@@ -1399,7 +1577,7 @@ function update(dt) {
     } else if (s.mode === "celebrate") {
       bear.mood = "happy";
       if (!RM && confetti.length < 40) spawnConfetti(6);
-      if (!RM && Math.random() < dt / 900) spawnFirework();
+      if (!RM && Math.random() < dt / 430) spawnFirework();
       if (balloons.length < balloonMax()) addBalloon(false);
     }
     if (bear.hop > 0) bear.hop = Math.max(0, bear.hop - dt / 420);
@@ -1413,6 +1591,8 @@ function update(dt) {
     const target = fatness();
     bear.fat += (target - bear.fat) * Math.min(1, dt / 300);
   }
+
+  if (skyFade < 1) skyFade = Math.min(1, skyFade + dt / 620);
 
   // 鏡頭上下平移，讓對話框有位置又不擋到熊
   s.camY += (s.camYTarget - s.camY) * Math.min(1, dt / 200);
@@ -1456,6 +1636,13 @@ function render(dt) {
                { walk: bear.phase, mood: bear.mood, lift, fat: bear.fat });
     }
     ctx.restore();
+
+    const n = night();                       // 天黑了就整片壓暗，地面人物一起變暗
+    if (n > 0.02) {
+      ctx.globalAlpha = n * 0.46;
+      px(0, 0, W, H, "#070c28");
+      ctx.globalAlpha = 1;
+    }
   }
 
   // 信的底色；卡片打開時淡出，世界才浮現
@@ -1896,7 +2083,9 @@ function startWalk() {
 }
 function showWish(i) {
   showPanel("none");
-  showSceneDialog("熊熊說", CONFIG.wishes[i].text);
+  const d = desserts[i];
+  showSceneDialog(d.who, d.text);
+  if (d.special) { bear.hop = 1; spawnHearts(d.x, GROUND_Y - 18); }
   setPips();
 }
 
