@@ -740,6 +740,27 @@ function addBalloon(spread, fast) {
 /* ==================================================================
    ⑤  背景
    ================================================================== */
+/* 整片壓暗。用 setTransform 歸零，才不會被鏡頭的上下位移帶偏 */
+function tintScreen(a) {
+  if (a <= 0) return;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = Math.min(1, a);
+  px(0, 0, W, H, "#070c28");
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+/* 夜裡在人物腳下鋪一圈暖光，讓他們從暗背景裡浮出來 */
+function warmPool(cx, cy, r, strength) {
+  if (strength <= 0) return;
+  for (let i = 5; i >= 1; i--) {
+    ctx.globalAlpha = strength * 0.055;
+    ell(cx, cy, Math.round(r * i / 5), Math.round(r * i / 5 * 0.46), "#ffcf8a");
+  }
+  ctx.globalAlpha = 1;
+}
+
 /* 入夜程度：熊吃越多天越暗（0 = 正午，1 = 全黑） */
 const night = () => clamp(rich(), 0, 1);
 
@@ -1619,7 +1640,16 @@ function render(dt) {
     drawGround();
     if (s.scene === "walk" || s.scene === "finale") drawButterflies();
 
+    // 背景先壓暗，人物等一下只壓一點點，才不會整片黑成一團
+    const nt = night();
+    tintScreen(nt * 0.5);
+
     if (s.scene === "walk" || s.scene === "finale") {
+      if (nt > 0.12) {                      // 腳下的暖光
+        warmPool(bear.x - s.camX, GROUND_Y - 5, 36, nt);
+        const cx0 = CAKE_X - s.camX;
+        if (cx0 > -60 && cx0 < W + 60) warmPool(cx0, GROUND_Y - 6, 52, nt * 1.35);
+      }
       desserts.forEach((d, i) => {          // 甜點 + 大蛋糕
         const sx = d.x - s.camX;
         if (sx < -24 || sx > W + 24) return;
@@ -1634,15 +1664,10 @@ function render(dt) {
       const lift = bear.hop > 0 ? Math.sin(bear.hop * Math.PI) * 12 : 0;
       drawBear(bear.x - s.camX, GROUND_Y,
                { walk: bear.phase, mood: bear.mood, lift, fat: bear.fat });
+
+      tintScreen(nt * 0.14);                // 人物只跟著暗一點點
     }
     ctx.restore();
-
-    const n = night();                       // 天黑了就整片壓暗，地面人物一起變暗
-    if (n > 0.02) {
-      ctx.globalAlpha = n * 0.46;
-      px(0, 0, W, H, "#070c28");
-      ctx.globalAlpha = 1;
-    }
   }
 
   // 信的底色；卡片打開時淡出，世界才浮現
