@@ -179,7 +179,8 @@
     align-items: center;
     justify-content: flex-end;
     padding: 0 4% 0 56%;
-    pointer-events: none;
+    cursor: pointer;
+    touch-action: manipulation;
   }
   .cutin[hidden] { display: none; }
   .cutin-in {
@@ -192,6 +193,16 @@
     animation: cutinPop .28s steps(3, jump-none);
   }
   @keyframes cutinPop { from { transform: translateX(16px); } to { transform: translateX(0); } }
+  .cutin-tap {
+    display: block;
+    margin-top: 8px;
+    font-size: clamp(10px, 2.4vw, 14px);
+    font-weight: 800;
+    letter-spacing: .1em;
+    color: var(--butter);
+    text-shadow: 2px 2px 0 #1a1006;
+    animation: blink 1s steps(2, jump-none) infinite;
+  }
   canvas.screen {
     display: block;
     width: 100%;
@@ -503,7 +514,9 @@
 
       <!-- 壯狗登場的蓋版畫面 -->
       <div class="cutin" id="cutin" hidden>
-        <span class="cutin-in">大棕熊壯狗狗<br />來救你了</span>
+        <span class="cutin-in">大棕熊壯狗狗<br />來救你了
+          <span class="cutin-tap">點一下繼續 ▶</span>
+        </span>
       </div>
 
       <!-- 場景裡的像素對話框：賀詞直接長在熊的畫面上 -->
@@ -1398,21 +1411,23 @@ function drawBuffDog(x, by, opts) {
   tri(cx + 3, hy - 3, cx + 10, hy - 1, cx + 8, hy - 10, INK);
   tri(cx + 4, hy - 3, cx + 9, hy - 2, cx + 8, hy - 9, DOG_D);
   ellO(cx, hy, 8, 7, DOG, INK);
-  ell(cx - 6, hy + 2, 3, 3, DOG_L);                                // 臉頰的白
-  ell(cx + 6, hy + 2, 3, 3, DOG_L);
-  ell(cx, hy + 4, 6, 3, DOG_MUZ);                                  // 白吻部
+  ell(cx, hy + 3, 7, 4, DOG_L);                                    // 大片奶油臉罩
+  ell(cx - 4, hy - 2, 3, 2, DOG_L);                                // 眉上的奶油塊
+  ell(cx + 4, hy - 3, 3, 2, DOG_L);
+  ell(cx, hy + 4, 4, 3, DOG_MUZ);                                  // 白吻部
   px(cx - 1, hy + 3, 3, 2, "#241a16");                             // 鼻子
-  px(cx - 3, hy + 6, 3, 1, "#241a16");                             // 嘴
-  px(cx + 1, hy + 6, 3, 1, "#241a16");
+  px(cx - 3, hy + 6, 3, 1, "#3a2a22");                             // 閉著的嘴
+  px(cx + 1, hy + 6, 3, 1, "#3a2a22");
+  px(cx - 4, hy + 5, 1, 1, "#3a2a22");
+  px(cx + 4, hy + 5, 1, 1, "#3a2a22");
   const blink = (state.t + 900) % 4200 < 130;
-  if (blink) { px(cx - 5, hy - 1, 3, 1, INK); px(cx + 3, hy - 1, 3, 1, INK); }
+  if (blink) { px(cx - 5, hy - 1, 2, 1, INK); px(cx + 2, hy - 1, 2, 1, INK); }
   else {
-    px(cx - 5, hy - 2, 2, 3, INK); px(cx + 3, hy - 2, 2, 3, INK);
-    px(cx - 5, hy - 2, 1, 1, CREAM); px(cx + 3, hy - 2, 1, 1, CREAM);
+    px(cx - 5, hy - 1, 2, 2, INK); px(cx + 2, hy - 1, 2, 2, INK);  // 小眼睛、偏左
+    px(cx - 6, hy - 2, 1, 1, CREAM); px(cx + 1, hy - 2, 1, 1, CREAM);
   }
-  px(cx - 6, hy - 5, 3, 1, DOG_L);                                 // 眉上的白點
-  px(cx + 4, hy - 5, 3, 1, DOG_L);
-  if (pose === "carry" || pose === "flex") px(cx - 1, hy + 7, 4, 2, "#c9506a");   // 吐舌
+  px(cx - 6, hy - 4, 3, 1, "#c99a6e");                             // 抬高的眉毛
+  px(cx + 2, hy - 3, 3, 1, "#c99a6e");
 
   px(cx - 8, hy + 8, 17, 2, INK);                                  // 項圈
   px(cx - 8, hy + 8, 17, 1, MINT);
@@ -1422,39 +1437,53 @@ function drawBuffDog(x, by, opts) {
 }
 
 /* 蓋版用的柴犬大頭 + 速度線 */
+/* doge 的臉：上半赤色、下半一大片奶油、小小的眼睛往旁邊看、閉著嘴微笑 */
 function drawShibaHead(cx, cy, r) {
-  const u = Math.max(1, Math.round(r / 14));
+  const u = Math.max(1, Math.round(r / 15));
   cx = Math.round(cx); cy = Math.round(cy);
 
-  // 立耳
-  tri(cx - r, cy - r * .18, cx - r * .34, cy - r * .5, cx - r * .8, cy - r * 1.3, INK);
-  tri(cx - r * .93, cy - r * .26, cx - r * .44, cy - r * .5, cx - r * .8, cy - r * 1.16, DOG_D);
-  ell(cx - r * .76, cy - r * .72, u * 1.6, u * 2.6, "#8d4f22");
-  tri(cx + r * .34, cy - r * .5, cx + r, cy - r * .18, cx + r * .8, cy - r * 1.3, INK);
-  tri(cx + r * .44, cy - r * .5, cx + r * .93, cy - r * .26, cx + r * .8, cy - r * 1.16, DOG_D);
-  ell(cx + r * .76, cy - r * .72, u * 1.6, u * 2.6, "#8d4f22");
+  // 立耳（往外斜）
+  tri(cx - r * 1.02, cy - r * .1, cx - r * .3, cy - r * .5, cx - r * .88, cy - r * 1.24, INK);
+  tri(cx - r * .95, cy - r * .18, cx - r * .42, cy - r * .5, cx - r * .86, cy - r * 1.1, DOG);
+  ell(cx - r * .78, cy - r * .66, u * 1.5, u * 2.4, "#8d4f22");
+  tri(cx + r * .3, cy - r * .5, cx + r * 1.02, cy - r * .1, cx + r * .88, cy - r * 1.24, INK);
+  tri(cx + r * .42, cy - r * .5, cx + r * .95, cy - r * .18, cx + r * .86, cy - r * 1.1, DOG);
+  ell(cx + r * .78, cy - r * .66, u * 1.5, u * 2.4, "#8d4f22");
 
-  ellO(cx, cy, r, r * .9, DOG, INK);                       // 臉
+  ellO(cx, cy, r, r * .92, DOG, INK);                 // 頭（赤色底）
 
-  // 柴犬的裏白：兩頰 + 眉上兩點 + 吻部
-  ell(cx - r * .6, cy + r * .3, r * .3, r * .26, DOG_L);
-  ell(cx + r * .6, cy + r * .3, r * .3, r * .26, DOG_L);
-  ell(cx, cy + r * .44, r * .44, r * .28, DOG_MUZ);
-  ell(cx - r * .42, cy - r * .44, u * 1.8, u, DOG_L);      // 眉上白點（小一點）
-  ell(cx + r * .42, cy - r * .44, u * 1.8, u, DOG_L);
+  // 一大片奶油色的臉罩，從眉毛蓋到下巴
+  ell(cx, cy + r * .3, r * .82, r * .62, DOG_L);
+  ell(cx - r * .46, cy - r * .3, r * .34, r * .26, DOG_L);   // 眉上的奶油塊
+  ell(cx + r * .4, cy - r * .34, r * .3, r * .24, DOG_L);
+  ell(cx, cy + r * .42, r * .5, r * .34, DOG_MUZ);           // 更白的吻部
 
-  // 杏眼
-  ellO(cx - r * .38, cy - r * .1, u * 1.7, u * 2.1, INK, INK);
-  ellO(cx + r * .38, cy - r * .1, u * 1.7, u * 2.1, INK, INK);
-  px(cx - r * .38 - u, cy - r * .1 - u, u, u, CREAM);
-  px(cx + r * .38 - u, cy - r * .1 - u, u, u, CREAM);
+  // 兩側的蓬毛
+  for (let i = -2; i <= 2; i++) {
+    ell(cx - r * .92, cy + r * .18 + i * u * 2.2, u * 2.4, u * 1.4, DOG);
+    ell(cx + r * .92, cy + r * .18 + i * u * 2.2, u * 2.4, u * 1.4, DOG);
+  }
 
-  // 鼻子與嘴
-  ell(cx, cy + r * .28, u * 2.2, u * 1.5, "#241a16");
-  px(cx - u, cy + r * .28 - u, u, u, "#7a5a4a");
-  px(cx - r * .26, cy + r * .5, u * 2.4, u, "#241a16");
-  px(cx + r * .04, cy + r * .5, u * 2.4, u, "#241a16");
-  ell(cx, cy + r * .62, u * 2, u * 1.4, "#c9506a");        // 吐舌
+  // 眼睛：兩顆都偏左，做出「往旁邊看」的 doge 表情
+  const eyL = cx - r * .44, eyR = cx + r * .2, eyY = cy - r * .12;
+  ell(eyL, eyY, u * 1.6, u * 1.9, INK);
+  ell(eyR, eyY, u * 1.6, u * 1.9, INK);
+  px(eyL - u * 1.5, eyY - u, u, u, CREAM);            // 高光也偏左
+  px(eyR - u * 1.5, eyY - u, u, u, CREAM);
+
+  // 眉毛：左邊那道抬高一點，就是那個表情的關鍵
+  px(eyL - u * 2, eyY - u * 3.6, u * 4, u, "#c99a6e");
+  px(eyR - u, eyY - u * 3, u * 4, u, "#c99a6e");
+
+  ell(cx, cy + r * .26, u * 2.4, u * 1.7, "#241a16");  // 鼻子
+  px(cx - u * 1.5, cy + r * .26 - u, u, u, "#8d6a55");
+
+  // 閉著的嘴，兩端微微上揚
+  px(cx - r * .22, cy + r * .5, u * 4, u, "#3a2a22");
+  px(cx + r * .02, cy + r * .5, u * 4, u, "#3a2a22");
+  px(cx - r * .26, cy + r * .46, u, u, "#3a2a22");
+  px(cx + r * .22, cy + r * .46, u, u, "#3a2a22");
+  px(cx - u, cy + r * .38, u * 2, u * 2, "#3a2a22");   // 人中
 }
 
 function drawCutIn(t) {
@@ -1785,27 +1814,15 @@ function update(dt) {
       if (s.fallAt !== null && bear.x >= s.fallAt) {
         s.fallAt = null; s.mode = "fall"; s.at = 0; sfx("fall");
         spawnCrumbs(bear.x, GROUND_Y - 2);
-        showSceneDialog("熊熊走不動，昏倒了……", { last: true });
+        showSceneDialog("熊熊走不動，昏倒了……");
       } else if (s.stuckAt !== null && bear.x >= s.stuckAt) {
         s.stuckAt = null; s.mode = "stuck"; sfx("err");
         showSceneDialog("大棕熊走不動了，推我一下！");
       } else if (bear.x >= target - 0.4) { s.mode = "eating"; s.at = 0; sfx("chomp"); }
-    } else if (s.mode === "fall") {          // 趴在地上
+    } else if (s.mode === "fall") {          // 趴在地上，等玩家點
       bear.mood = "fallen";
-      if (s.at > 1450 * spd) {
-        hideSceneDialog();
-        s.mode = "cutin"; s.at = 0;
-        el("cutin").hidden = false;
-        sfx("unlock");
-      }
-    } else if (s.mode === "cutin") {         // 蓋版：壯狗的大頭
+    } else if (s.mode === "cutin") {         // 蓋版，等玩家點
       bear.mood = "fallen";
-      if (s.at > 1900 * spd) {
-        el("cutin").hidden = true;
-        s.mode = "dogRun"; s.at = 0;
-        bigDog.active = true; bigDog.carrying = false;
-        bigDog.x = Math.min(bear.x - 60, s.camX - 24);
-      }
     } else if (s.mode === "dogRun") {        // 壯狗跑過來
       const t = bear.x - 17;
       bigDog.x = Math.min(t, bigDog.x + 155 * dt / 1000);
@@ -2428,6 +2445,7 @@ function showWish(i) {
 /* 點對話框就往前走（最後一句不再前進） */
 el("sceneDialog").addEventListener("click", () => {
   if (state.scene !== "walk") return;
+  if (state.mode === "fall") { fallToCutIn(); return; }
   if (state.mode === "stuck") { pushBear(); return; }
   if (state.mode !== "wish") return;
   hideSceneDialog();
@@ -2477,6 +2495,24 @@ function startSegment() {
   }
 }
 
+/* 昏倒 → 蓋版 */
+function fallToCutIn() {
+  if (state.mode !== "fall" || state.at < 250) return;
+  hideSceneDialog();
+  state.mode = "cutin"; state.at = 0;
+  el("cutin").hidden = false;
+  sfx("unlock");
+}
+
+/* 蓋版 → 壯狗跑進來 */
+function cutInToRescue() {
+  if (state.mode !== "cutin" || state.at < 250) return;
+  el("cutin").hidden = true;
+  state.mode = "dogRun"; state.at = 0;
+  bigDog.active = true; bigDog.carrying = false;
+  bigDog.x = Math.min(bear.x - 60, state.camX - 24);
+}
+
 function pushBear() {
   hideSceneDialog();
   state.mode = "walking";
@@ -2486,6 +2522,7 @@ function pushBear() {
 }
 
 el("sceneHint").addEventListener("click", e => { e.stopPropagation(); startSegment(); });
+el("cutin").addEventListener("click", e => { e.stopPropagation(); cutInToRescue(); });
 
 function showEnd() {
   if (!bigDog.active) { bigDog.active = true; bigDog.x = DOG_X; }  // 保險：結尾一定有狗
@@ -2549,9 +2586,10 @@ cv.addEventListener("click", e => {
   if (state.scene === "walk") {
     if (state.mode === "ready") { startSegment(); return; }
     if (state.mode === "stuck") { pushBear(); return; }
-    // 跌倒／救援的過場自己會演完，不吃點擊
-    if (state.mode === "fall" || state.mode === "cutin" || state.mode === "dogRun" ||
-        state.mode === "lift" || state.mode === "carry") return;
+    if (state.mode === "fall") { fallToCutIn(); return; }
+    if (state.mode === "cutin") { cutInToRescue(); return; }
+    // 救援動作自己會演完，不吃點擊
+    if (state.mode === "dogRun" || state.mode === "lift" || state.mode === "carry") return;
   }
   if (bear.hop <= 0) bear.hop = 1;
   sfx("key");
