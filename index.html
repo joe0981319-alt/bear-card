@@ -623,15 +623,13 @@ const CONFIG = {
   hint1: "提示：4 位數字，一個屬於你的日期。",
   hint2: "提示：小狗狗的日期。",
 
-  /* 六句賀詞，順序固定（訊息才不會漏掉） */
+  /* 路上的五句賀詞，順序固定（訊息才不會漏掉） */
   wishes: [
     { text: "哇！是快樂小熊！你是最棒，以後也要一直當個快樂小熊" },
     { text: "在工作上你一定是最棒的，遇到什麼問題都一定可以解決" },
     { text: "又長大一歲，恭喜你把日子過得這麼好" },
     { text: "你是漂亮與可愛的綜合體，大概 8:2 的完美比例" },
-    { text: "希望你的 30 歲每天都精彩，並完成自己的夢想" },
-    { title: "大棕熊生日快樂",
-      text: "很高興在今年認識了你，希望未來可以越來越了解你" }
+    { text: "希望你的 30 歲每天都精彩，並完成自己的夢想" }
   ],
 
   /* 路上出現哪些甜點每次隨機抽，鮭魚一定會出現 */
@@ -639,7 +637,8 @@ const CONFIG = {
            "cake", "macaron", "honey", "cookie", "taiyaki"],
   mustTreat: "salmon",
 
-  ending: "熊熊已經吃飽了，換你把接下來的一年，一口一口吃成甜的。"
+  endTitle: "大棕熊生日快樂",
+  ending: "很高興在今年認識了你，希望未來可以越來越了解你"
 };
 
 /* ==================================================================
@@ -742,7 +741,7 @@ function applyGround() {
   FG_Y     = PATH_Y + PATH_H;         // 前景草
 }
 applyGround();
-const DESSERT_X = [150, 340, 530, 730, 930, 1120];
+const DESSERT_X = [150, 390, 630, 870, 1110];
 const CAKE_X    = 1330;
 const DOG_X     = 1366;          // 吉娃娃坐在蛋糕右邊
 const BEAR_END_X = 1286;         // 熊 → 蛋糕 → 吉娃娃，三個都不重疊
@@ -2594,7 +2593,7 @@ el("cutin").addEventListener("click", e => { e.stopPropagation(); cutInToRescue(
 function showEnd() {
   if (!bigDog.active) { bigDog.active = true; bigDog.x = DOG_X; }  // 保險：結尾一定有狗
   el("eyebrow").textContent = CONFIG.to ? "給 " + CONFIG.to : "生日快樂";
-  showSceneDialog(CONFIG.ending, { title: "生日快樂", last: true });
+  showSceneDialog(CONFIG.ending, { title: CONFIG.endTitle, last: true });
   showPanel("end");
   el("replayBtn").focus({ preventScroll: true });
 }
