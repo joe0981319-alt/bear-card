@@ -225,14 +225,6 @@
       5px 0, calc(100% - 5px) 0, 100% 5px, 100% calc(100% - 5px),
       calc(100% - 5px) 100%, 5px 100%, 0 calc(100% - 5px), 0 5px);
   }
-  .pxbox-label {
-    display: block;
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: .22em;
-    color: #8a6f4e;
-    margin-bottom: 5px;
-  }
   .pxbox-title {
     display: block;
     font-size: clamp(20px, 5.2vw, 32px);
@@ -493,7 +485,6 @@
         </button>
         <button class="pxbox" id="sceneDialog" type="button">
           <span class="pxbox-in">
-            <span class="pxbox-label" id="sceneWho">熊熊說</span>
             <span class="pxbox-title" id="sceneTitle" hidden>生日快樂</span>
             <span class="pxbox-text" id="sceneText"></span>
           </span>
@@ -526,7 +517,9 @@
 
     <!-- 結尾（賀詞在畫面裡，這裡只留說明） -->
     <section class="panel" id="panelEnd" hidden>
-      <p class="sub">想再看一次的話，重新整理這個頁面就可以了。</p>
+      <div class="row">
+        <button class="btn" id="replayBtn" type="button">再玩一次</button>
+      </div>
     </section>
   </div>
 
@@ -554,7 +547,7 @@ const CONFIG = {
      所以每次走的路都不一樣。鮭魚是熊的最愛，一定會出現。 */
   treatCount: 6,
   treats: [
-    { kind: "salmon", always: true, who: "熊熊超開心",
+    { kind: "salmon", always: true,
       text: "鮭魚！熊等這個等很久了。願你今年也常常遇到自己最想要的那一個。" },
     { kind: "donut",
       text: "甜甜圈中間的洞是留給煩惱的，其他甜的部分都是你的。" },
@@ -733,7 +726,6 @@ function rollDesserts() {
     x: DESSERT_X[i] + Math.round((Math.random() - 0.5) * 44),
     kind: t.kind,
     text: t.text,
-    who: t.who || "熊熊說",
     special: !!t.always,
     bite: 0, gone: false
   }));
@@ -1633,7 +1625,7 @@ function update(dt) {
       bear.mood = "idle";
       if (s.stuckAt !== null && bear.x >= s.stuckAt) {
         s.stuckAt = null; s.mode = "stuck"; sfx("err");
-        showSceneDialog("熊熊喊", "大棕熊走不動了，推我一下！");
+        showSceneDialog("大棕熊走不動了，推我一下！");
       } else if (bear.x >= target - 0.4) { s.mode = "eating"; s.at = 0; sfx("chomp"); }
     } else if (s.mode === "eating") {
       const d = desserts[s.idx];
@@ -1970,9 +1962,8 @@ function showPanel(name) {
 }
 
 /* ---- 場景內的對話框 ---- */
-function showSceneDialog(who, text, opts) {
+function showSceneDialog(text, opts) {
   opts = opts || {};
-  el("sceneWho").textContent = who;
   el("sceneText").textContent = text;
   const t = el("sceneTitle");
   t.hidden = !opts.title;
@@ -2192,7 +2183,7 @@ function startWalk() {
 function showWish(i) {
   showPanel("none");
   const d = desserts[i];
-  showSceneDialog(d.who, d.text);
+  showSceneDialog(d.text);
   if (d.special) { bear.hop = 1; spawnHearts(d.x, GROUND_Y - 18); }
   setPips();
 }
@@ -2247,9 +2238,23 @@ el("sceneHint").addEventListener("click", e => { e.stopPropagation(); startSegme
 
 function showEnd() {
   el("eyebrow").textContent = CONFIG.to ? "給 " + CONFIG.to : "生日快樂";
-  showSceneDialog("最後一句", CONFIG.ending, { title: "生日快樂", last: true });
+  showSceneDialog(CONFIG.ending, { title: "生日快樂", last: true });
+  el("foot").hidden = true;          // 走完了，操作提示收起來
   showPanel("end");
+  el("replayBtn").focus({ preventScroll: true });
 }
+
+/* 再玩一次：密碼已經解過就不用再解，直接重走一遍。
+   甜點會重抽，所以每次路上遇到的都不一樣。 */
+function replayWalk() {
+  rollDesserts();
+  bear.fat = 0; bear.hop = 0; bear.mood = "idle";
+  dog.hop = 0; dog.bark = 0;
+  confetti = []; crumbs = []; fireworks = []; fwParts = [];
+  state.camX = 0; state.camY = 0; state.camYTarget = 0;
+  startWalk();
+}
+el("replayBtn").addEventListener("click", replayWalk);
 
 /* 只在載入時跑一次；跑完整個流程後會停在最後一頁，重新整理才會從頭開始 */
 function reset() {
