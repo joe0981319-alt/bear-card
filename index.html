@@ -2109,6 +2109,7 @@ function render(dt) {
    ================================================================== */
 let actx = null, musicGain = null, sfxGain = null, noiseBuf = null;
 let soundOn = true, bgmOn = false, bgmTimer = null, bgmIndex = 0, bgmNextTime = 0;
+let bgmSection = "";
 
 const SEMI = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 function noteHz(n) {
@@ -2138,6 +2139,27 @@ const ARP = seq(`
   . A4 . C5 . A4 . C5   . B4 . D5 . B4 . D5
   . E4 . G4 . E4 . G4   . C4 . E4 . C4 . E4
   . A4 . C5 . A4 . C5   . B4 . D5 . B4 . D5
+`);
+
+/* 蛋糕那一段換成整首不一樣的：更快、更高、鼓更密 */
+const PARTY_BPM = 152;
+const PARTY_LEAD = seq(`
+  G5 C6 E6 C6 G5 E5 G5 C6   A5 C6 F6 C6 A5 F5 A5 C6
+  B5 D6 G5 D6 B5 G5 B5 D6   C6 E6 G5 C6 E6 C6 G5 E5
+  A5 C6 E6 C6 A5 E5 A5 C6   F5 A5 C6 A5 F5 C5 F5 A5
+  G5 B5 D6 B5 G5 D5 G5 B5   C6 B5 A5 G5 E5 G5 C6 .
+`);
+const PARTY_BASS = seq(`
+  C3 C3 G2 C3 C3 C3 G2 C3   F2 F2 C3 F2 F2 F2 C3 F2
+  G2 G2 D3 G2 G2 G2 D3 G2   C3 C3 G2 C3 C3 C3 G2 G2
+  A2 A2 E2 A2 A2 A2 E2 A2   F2 F2 C3 F2 F2 F2 C3 F2
+  G2 G2 D3 G2 G2 G2 D3 D3   C3 C3 G2 C3 C3 C3 C3 C3
+`);
+const PARTY_ARP = seq(`
+  . E5 . G5 . E5 . G5   . A4 . C5 . A4 . C5
+  . B4 . D5 . B4 . D5   . E5 . G5 . E5 . G5
+  . C5 . E5 . C5 . E5   . A4 . C5 . A4 . C5
+  . B4 . D5 . B4 . D5   . E5 . G5 . G5 . G5
 `);
 
 function ensureAudio() {
@@ -2186,30 +2208,60 @@ function kick(t) {
   o.start(t); o.stop(t + 0.17);
 }
 
+/* letter：解謎 / walk：散步 / party：蛋糕前的慶祝 */
+function sectionNow() {
+  return state.scene === "finale" ? "party"
+       : state.scene === "walk"   ? "walk" : "letter";
+}
+function stepDur() {
+  return 60 / (sectionNow() === "party" ? PARTY_BPM : BGM_BPM) / 2;
+}
 function musicLevel() {
   if (!soundOn) return 0;
-  // 解謎階段小聲一點，卡片打開後整首放開
-  return (state.scene === "walk" || state.scene === "finale") ? 0.17 : 0.10;
+  const sec = sectionNow();
+  return sec === "party" ? 0.21 : sec === "walk" ? 0.17 : 0.10;
 }
 function playBgmStep(i, t) {
-  const sd = 60 / BGM_BPM / 2;                     // 一格 = 8 分音符
-  const full = state.scene === "walk" || state.scene === "finale";
-  if (LEAD[i] !== ".") tone(noteHz(LEAD[i]), t, sd * 0.92, "square", 0.085, musicGain);
-  if (BASS[i] !== ".") tone(noteHz(BASS[i]), t, sd * 1.5, "triangle", 0.17, musicGain);
-  if (!full) return;
-  if (ARP[i] !== ".") tone(noteHz(ARP[i]), t, sd * 0.45, "square", 0.032, musicGain);
+  const sd = stepDur();                            // 一格 = 8 分音符
+  const sec = sectionNow();
+  const party = sec === "party";
+  const L = party ? PARTY_LEAD : LEAD;
+  const B = party ? PARTY_BASS : BASS;
+  const A = party ? PARTY_ARP  : ARP;
+
+  if (L[i] !== ".") tone(noteHz(L[i]), t, sd * 0.9, "square", 0.085, musicGain);
+  if (B[i] !== ".") tone(noteHz(B[i]), t, sd * (party ? 0.85 : 1.5), "triangle", 0.17, musicGain);
+  if (sec === "letter") return;
+
+  if (A[i] !== ".") tone(noteHz(A[i]), t, sd * 0.45, "square", 0.032, musicGain);
   const b = i % 8;
-  hit(t, 0.035, b % 2 === 0 ? 0.075 : 0.04, 7000);            // hi-hat
-  if (b === 0 || b === 4) kick(t);
-  if (b === 2 || b === 6) hit(t, 0.10, 0.16, 1600);           // snare
+
+  if (party) {
+    hit(t, 0.03, b % 2 === 0 ? 0.095 : 0.055, 7500);          // 更亮的 hi-hat
+    if (b % 2 === 0) kick(t);                                 // 每一拍都踩大鼓
+    if (b === 2 || b === 6) hit(t, 0.11, 0.20, 1600);         // snare
+    if (b === 7) hit(t, 0.06, 0.12, 3000);                    // 過門
+    if (i % 32 === 0) hit(t, 0.34, 0.15, 5000);               // 每四小節一次碎音
+    if (L[i] !== "." && b % 4 === 0)                          // 高八度的亮音
+      tone(noteHz(L[i]) * 2, t, sd * 0.7, "triangle", 0.03, musicGain);
+  } else {
+    hit(t, 0.035, b % 2 === 0 ? 0.075 : 0.04, 7000);
+    if (b === 0 || b === 4) kick(t);
+    if (b === 2 || b === 6) hit(t, 0.10, 0.16, 1600);
+  }
 }
 function bgmTick() {
   if (!actx) return;
-  const sd = 60 / BGM_BPM / 2;
   musicGain.gain.setTargetAtTime(musicLevel(), actx.currentTime, 0.25);
+  const sec = sectionNow();
+  if (sec !== bgmSection) {          // 換段就重頭起拍，變化才明顯
+    bgmSection = sec;
+    bgmIndex = 0;
+    bgmNextTime = Math.max(bgmNextTime, actx.currentTime + 0.03);
+  }
   while (bgmNextTime < actx.currentTime + 0.15) {
     playBgmStep(bgmIndex, Math.max(bgmNextTime, actx.currentTime + 0.01));
-    bgmNextTime += sd;
+    bgmNextTime += stepDur();
     bgmIndex = (bgmIndex + 1) % LEAD.length;
   }
 }
@@ -2218,6 +2270,7 @@ function startBgm() {
   if (!ensureAudio()) return;
   bgmOn = true;
   bgmIndex = 0;
+  bgmSection = "";
   bgmNextTime = actx.currentTime + 0.1;
   bgmTimer = setInterval(bgmTick, 45);
   bgmTick();
