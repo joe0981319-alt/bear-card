@@ -1,10 +1,10 @@
 <meta charset="utf-8" />
-<title>熊熊甜點小徑</title>
+<title>給大棕熊的卡片</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#170f28" />
 <meta name="description" content="一張要兩道密碼才能打開的像素風生日賀卡。" />
 <meta property="og:type" content="website" />
-<meta property="og:title" content="熊熊甜點小徑" />
+<meta property="og:title" content="給大棕熊的卡片" />
 <meta property="og:description" content="一封被封起來的信，兩道密碼，還有一隻邊走邊吃甜點的熊。" />
 
 <style>
@@ -623,31 +623,22 @@ const CONFIG = {
   hint1: "提示：4 位數字，一個屬於你的日期。",
   hint2: "提示：小狗狗的日期。",
 
-  /* 甜點池：每次玩會從這裡隨機抽 6 個，位置也會抖動，
-     所以每次走的路都不一樣。鮭魚是熊的最愛，一定會出現。 */
-  treatCount: 6,
-  treats: [
-    { kind: "salmon", always: true,
-      text: "鮭魚！熊等這個等很久了。願你今年也常常遇到自己最想要的那一個。" },
-    { kind: "donut",
-      text: "甜甜圈中間的洞是留給煩惱的，其他甜的部分都是你的。" },
-    { kind: "cupcake",
-      text: "願你接下來的每一天，都像剛出爐一樣蓬鬆又柔軟。" },
-    { kind: "icecream",
-      text: "就算世界有時候很燙，也希望你永遠不要融化。" },
-    { kind: "pudding",
-      text: "祝你走路都會遇到好事，像布丁一定會遇到焦糖那樣。" },
-    { kind: "cake",
-      text: "最上面那顆草莓，永遠是你的，沒有人可以跟你搶。" },
-    { kind: "macaron",
-      text: "又長大一歲了，恭喜你把日子過得這麼好。" },
-    { kind: "honey",
-      text: "願你今年的煩惱都黏在罐子邊，怎麼倒都倒不出來。" },
-    { kind: "cookie",
-      text: "你比你自己以為的還要更耐放，也更受歡迎一點。" },
-    { kind: "taiyaki",
-      text: "希望你每次翻開的那一面，都剛好是有餡的那一面。" }
+  /* 六句賀詞，順序固定（訊息才不會漏掉） */
+  wishes: [
+    { text: "哇！是快樂小熊！你是最棒，以後也要一直當個快樂小熊" },
+    { text: "在工作上你一定是最棒的，遇到什麼問題都一定可以解決" },
+    { text: "又長大一歲，恭喜你把日子過得這麼好" },
+    { text: "你是漂亮與可愛的綜合體，大概 8:2 的完美比例" },
+    { text: "希望你的 30 歲每天都精彩，並完成自己的夢想" },
+    { title: "大棕熊生日快樂",
+      text: "很高興在今年認識了你，希望未來可以越來越了解你" }
   ],
+
+  /* 路上出現哪些甜點每次隨機抽，鮭魚一定會出現 */
+  treats: ["salmon", "donut", "cupcake", "icecream", "pudding",
+           "cake", "macaron", "honey", "cookie", "taiyaki"],
+  mustTreat: "salmon",
+
   ending: "熊熊已經吃飽了，換你把接下來的一年，一口一口吃成甜的。"
 };
 
@@ -803,7 +794,7 @@ const bigDog = { x: 0, phase: 0, active: false, carrying: false };
 
 const bear = { x: 60, phase: 0, hop: 0, mood: "idle", blinkAt: 0, fat: 0, push: 0 };
 let walkBoost = 1;               // 手機上加速用
-/* 洗牌後抽 treatCount 個，鮭魚保證入選，位置再各自抖一下 */
+/* 隨機抽甜點種類（鮭魚保證入選、位置抖動），賀詞則照固定順序配上去 */
 function rollDesserts() {
   const shuffle = a => {
     for (let i = a.length - 1; i > 0; i--) {
@@ -812,14 +803,15 @@ function rollDesserts() {
     }
     return a;
   };
-  const must = CONFIG.treats.filter(t => t.always);
-  const rest = shuffle(CONFIG.treats.filter(t => !t.always));
-  const picked = shuffle(must.concat(rest).slice(0, CONFIG.treatCount));
-  desserts = picked.map((t, i) => ({
+  const n = CONFIG.wishes.length;
+  const rest = shuffle(CONFIG.treats.filter(k => k !== CONFIG.mustTreat));
+  const kinds = shuffle([CONFIG.mustTreat].concat(rest).slice(0, n));
+  desserts = kinds.map((kind, i) => ({
     x: DESSERT_X[i] + Math.round((Math.random() - 0.5) * 44),
-    kind: t.kind,
-    text: t.text,
-    special: !!t.always,
+    kind,
+    text: CONFIG.wishes[i].text,       // 賀詞照順序，不隨機
+    title: CONFIG.wishes[i].title || "",
+    special: kind === CONFIG.mustTreat,
     bite: 0, gone: false
   }));
 }
@@ -2512,7 +2504,7 @@ function startWalk() {
 function showWish(i) {
   showPanel("none");
   const d = desserts[i];
-  showSceneDialog(d.text);
+  showSceneDialog(d.text, d.title ? { title: d.title } : {});
   if (d.special) { bear.hop = 1; spawnHearts(d.x, GROUND_Y - 18); }
   setPips();
 }
@@ -2649,18 +2641,75 @@ function wrapText(g, text, x, y, maxW, lineH) {
   return y + lineH;
 }
 
+/* 截圖最上方的兌換券 */
+function drawVoucher(g, x, y, w, h) {
+  const u = Math.max(2, Math.round(h * 0.045));
+  const shell = "#172b33";
+
+  g.fillStyle = shell; g.fillRect(x, y, w, h);                 // 底
+
+  const m = Math.round(h * 0.12);
+  const tx = x + m, ty = y + m, tw = w - m * 2, th = h - m * 2;
+
+  g.fillStyle = "#0d191e"; g.fillRect(tx, ty, tw, th);         // 票券外框
+  g.fillStyle = "#ffd15c"; g.fillRect(tx + u, ty + u, tw - u * 2, th - u * 2);
+  g.fillStyle = "#fff4de";
+  g.fillRect(tx + u * 2, ty + u * 2, tw - u * 4, th - u * 4);
+
+  // 左右兩側咬一個半圓，看起來像撕票口
+  g.fillStyle = shell;
+  const r = th * 0.22;
+  g.beginPath(); g.arc(tx, ty + th / 2, r, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.arc(tx + tw, ty + th / 2, r, 0, Math.PI * 2); g.fill();
+
+  // 副券的虛線
+  const dx = tx + Math.round(tw * 0.235);
+  g.fillStyle = "#c9a86a";
+  for (let yy = ty + u * 3; yy < ty + th - u * 3; yy += u * 3)
+    g.fillRect(dx, yy, Math.max(2, u * 0.7), u * 1.6);
+
+  // 副券上畫一塊小蛋糕
+  const cx0 = tx + Math.round(tw * 0.118), cy0 = ty + th / 2;
+  const s0 = th * 0.055;
+  g.fillStyle = "#0d191e"; g.fillRect(cx0 - s0 * 5, cy0 - s0, s0 * 10, s0 * 5);
+  g.fillStyle = "#ff8fb1"; g.fillRect(cx0 - s0 * 4, cy0, s0 * 8, s0 * 3);
+  g.fillStyle = "#fff4de"; g.fillRect(cx0 - s0 * 4, cy0 + s0 * 3, s0 * 8, s0);
+  g.fillStyle = "#ffd15c";
+  g.fillRect(cx0 - s0 * 3, cy0 - s0 * 4, s0, s0 * 3);
+  g.fillRect(cx0 - s0 * 0.5, cy0 - s0 * 5, s0, s0 * 4);
+  g.fillRect(cx0 + s0 * 2, cy0 - s0 * 4, s0, s0 * 3);
+
+  // 文字
+  const fs2 = Math.round(th * 0.4);
+  g.font = "900 " + fs2 + "px " + SANS;
+  g.textBaseline = "middle";
+  g.textAlign = "center";
+  const cxT = dx + (tx + tw - dx) / 2;
+  const sh = Math.max(2, Math.round(fs2 * 0.055));
+  g.fillStyle = "#e6cd9b";
+  g.fillText("生日飯兌換券", cxT + sh, cy0 + sh);
+  g.fillStyle = "#0d191e";
+  g.fillText("生日飯兌換券", cxT, cy0);
+  g.textAlign = "left";
+  g.textBaseline = "top";
+}
+
 function buildShot() {
   const rect = cv.getBoundingClientRect();
   if (!rect.width) return null;
 
   const scale = clamp(Math.round(1200 / W), 2, 6);
+  const sceneW = W * scale, sceneH = H * scale;
+  const vh = Math.round(sceneH * 0.20);                  // 上方兌換券的高度
   const out = document.createElement("canvas");
-  out.width = W * scale;
-  out.height = H * scale;
+  out.width = sceneW;
+  out.height = sceneH + vh;
   const g = out.getContext("2d");
 
+  drawVoucher(g, 0, 0, out.width, vh);
+
   g.imageSmoothingEnabled = false;
-  g.drawImage(cv, 0, 0, out.width, out.height);          // 畫面本身，維持像素銳利
+  g.drawImage(cv, 0, vh, sceneW, sceneH);                // 畫面本身，維持像素銳利
 
   const k = out.width / rect.width;                      // CSS px -> 圖片 px
 
@@ -2668,7 +2717,7 @@ function buildShot() {
   const box = el("sceneDialog");
   if (!el("sceneUI").hidden && !box.hidden) {
     const b = box.getBoundingClientRect();
-    const x = (b.left - rect.left) * k, y = (b.top - rect.top) * k;
+    const x = (b.left - rect.left) * k, y = (b.top - rect.top) * k + vh;
     const w = b.width * k, h = b.height * k;
 
     g.globalAlpha = .45;                                  // 硬陰影
@@ -2686,7 +2735,7 @@ function buildShot() {
     const inner = box.querySelector(".pxbox-in").getBoundingClientRect();
     const tx = (inner.left - rect.left) * k + 12 * k;
     const maxW = inner.width * k - 24 * k;
-    let ty = (inner.top - rect.top) * k + 9 * k;
+    let ty = (inner.top - rect.top) * k + 9 * k + vh;
 
     if (!title.hidden && title.textContent) {
       const cs = getComputedStyle(title);
@@ -2708,15 +2757,16 @@ function buildShot() {
   // 掃描線與暗角，跟螢幕上的質感一致
   g.globalAlpha = .11;
   g.fillStyle = "#000";
-  for (let yy = 0; yy < out.height; yy += 3 * k) g.fillRect(0, yy, out.width, k);
+  for (let yy = vh; yy < out.height; yy += 3 * k) g.fillRect(0, yy, out.width, k);
   g.globalAlpha = 1;
+  const cyF = vh + sceneH * .46;
   const vg = g.createRadialGradient(
-    out.width / 2, out.height * .46, out.width * .28,
-    out.width / 2, out.height * .46, out.width * .72);
+    out.width / 2, cyF, out.width * .28,
+    out.width / 2, cyF, out.width * .72);
   vg.addColorStop(0, "rgba(4,14,18,0)");
   vg.addColorStop(1, "rgba(4,14,18,.38)");
   g.fillStyle = vg;
-  g.fillRect(0, 0, out.width, out.height);
+  g.fillRect(0, vh, out.width, sceneH);
 
   return out;
 }
