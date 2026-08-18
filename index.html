@@ -449,6 +449,42 @@
     outline-offset: 3px;
   }
 
+  /* 截圖結果 */
+  .shot {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: rgba(6,14,18,.9);
+    display: grid;
+    place-items: center;
+    padding: 18px 14px;
+    overflow: auto;
+  }
+  .shot[hidden] { display: none; }
+  .shot-in {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+    max-width: min(760px, 100%);
+  }
+  .shot-in img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 3px solid var(--ink);
+    box-shadow: 0 8px 0 0 #081319, 0 12px 34px rgba(0,0,0,.6);
+    image-rendering: pixelated;
+  }
+  .shot-tip {
+    margin: 0;
+    font-size: 13px;
+    color: var(--cream-dim);
+    text-align: center;
+    line-height: 1.6;
+  }
+  .shot .btn { text-decoration: none; display: inline-flex; align-items: center; }
+
   .foot {
     font-size: 11px;
     color: #6f5b93;
@@ -559,12 +595,24 @@
     <!-- 結尾（賀詞在畫面裡，這裡只留說明） -->
     <section class="panel" id="panelEnd" hidden>
       <div class="row">
-        <button class="btn" id="replayBtn" type="button">再玩一次</button>
+        <button class="btn" id="shotBtn" type="button">截圖</button>
+        <button class="btn ghost" id="replayBtn" type="button">再玩一次</button>
       </div>
     </section>
   </div>
 
   <p class="foot" id="foot" hidden>點畫面熊才會前進；點吉娃娃牠會回你話</p>
+</div>
+
+<div class="shot" id="shot" hidden>
+  <div class="shot-in">
+    <img id="shotImg" alt="賀卡畫面截圖" />
+    <p class="shot-tip" id="shotTip">長按圖片可以存到相簿</p>
+    <div class="row">
+      <a class="btn" id="shotDl" download="bear-card.png" href="#">下載圖片</a>
+      <button class="btn ghost" id="shotClose" type="button">關閉</button>
+    </div>
+  </div>
 </div>
 
 <noscript>
@@ -2545,6 +2593,121 @@ function replayWalk() {
   startWalk();
 }
 el("replayBtn").addEventListener("click", replayWalk);
+
+/* ==================================================================
+   截圖：把畫布放大重畫一次，再把場景裡的像素對話框補上去，
+   輸出成一張跟螢幕上看到的一模一樣的圖。
+   ================================================================== */
+const SANS = getComputedStyle(document.body).fontFamily;
+
+/* 缺角的矩形，跟 CSS 的 clip-path 對應 */
+function notchRect(g, x, y, w, h, n, fill) {
+  g.beginPath();
+  g.moveTo(x + n, y);
+  g.lineTo(x + w - n, y); g.lineTo(x + w, y + n);
+  g.lineTo(x + w, y + h - n); g.lineTo(x + w - n, y + h);
+  g.lineTo(x + n, y + h); g.lineTo(x, y + h - n);
+  g.lineTo(x, y + n); g.closePath();
+  g.fillStyle = fill; g.fill();
+}
+
+/* 中文一個字一個字換行，跟畫面上的斷行接近 */
+function wrapText(g, text, x, y, maxW, lineH) {
+  let line = "";
+  for (const ch of text) {
+    if (g.measureText(line + ch).width > maxW && line) {
+      g.fillText(line, x, y); y += lineH; line = ch;
+    } else line += ch;
+  }
+  if (line) g.fillText(line, x, y);
+  return y + lineH;
+}
+
+function buildShot() {
+  const rect = cv.getBoundingClientRect();
+  if (!rect.width) return null;
+
+  const scale = clamp(Math.round(1200 / W), 2, 6);
+  const out = document.createElement("canvas");
+  out.width = W * scale;
+  out.height = H * scale;
+  const g = out.getContext("2d");
+
+  g.imageSmoothingEnabled = false;
+  g.drawImage(cv, 0, 0, out.width, out.height);          // 畫面本身，維持像素銳利
+
+  const k = out.width / rect.width;                      // CSS px -> 圖片 px
+
+  // 場景裡的對話框
+  const box = el("sceneDialog");
+  if (!el("sceneUI").hidden && !box.hidden) {
+    const b = box.getBoundingClientRect();
+    const x = (b.left - rect.left) * k, y = (b.top - rect.top) * k;
+    const w = b.width * k, h = b.height * k;
+
+    g.globalAlpha = .45;                                  // 硬陰影
+    notchRect(g, x, y + 4 * k, w, h, 8 * k, "#000000");
+    g.globalAlpha = 1;
+    notchRect(g, x, y, w, h, 8 * k, "#0d191e");           // 外框
+    const p = 4 * k;
+    notchRect(g, x + p, y + p, w - p * 2, h - p * 2, 5 * k, "#fff4de");
+    g.strokeStyle = "#cdb391";
+    g.lineWidth = 2 * k;
+    g.strokeRect(x + p + k, y + p + k, w - p * 2 - 2 * k, h - p * 2 - 2 * k);
+
+    g.textBaseline = "top";
+    const title = el("sceneTitle"), body = el("sceneText");
+    const inner = box.querySelector(".pxbox-in").getBoundingClientRect();
+    const tx = (inner.left - rect.left) * k + 12 * k;
+    const maxW = inner.width * k - 24 * k;
+    let ty = (inner.top - rect.top) * k + 9 * k;
+
+    if (!title.hidden && title.textContent) {
+      const cs = getComputedStyle(title);
+      const fs2 = parseFloat(cs.fontSize) * k;
+      g.font = "900 " + fs2 + "px " + SANS;
+      g.fillStyle = "#f3d9b6";                            // 標題的像素陰影
+      g.fillText(title.textContent, tx + 3 * k, ty + 3 * k);
+      g.fillStyle = "#bf3a63";
+      g.fillText(title.textContent, tx, ty);
+      ty += fs2 * 1.15 + 6 * k;
+    }
+    const bs = getComputedStyle(body);
+    const bf = parseFloat(bs.fontSize) * k;
+    g.font = "700 " + bf + "px " + SANS;
+    g.fillStyle = "#170f28";
+    wrapText(g, body.textContent, tx, ty, maxW, bf * 1.65);
+  }
+
+  // 掃描線與暗角，跟螢幕上的質感一致
+  g.globalAlpha = .11;
+  g.fillStyle = "#000";
+  for (let yy = 0; yy < out.height; yy += 3 * k) g.fillRect(0, yy, out.width, k);
+  g.globalAlpha = 1;
+  const vg = g.createRadialGradient(
+    out.width / 2, out.height * .46, out.width * .28,
+    out.width / 2, out.height * .46, out.width * .72);
+  vg.addColorStop(0, "rgba(4,14,18,0)");
+  vg.addColorStop(1, "rgba(4,14,18,.38)");
+  g.fillStyle = vg;
+  g.fillRect(0, 0, out.width, out.height);
+
+  return out;
+}
+
+el("shotBtn").addEventListener("click", () => {
+  const out = buildShot();
+  if (!out) return;
+  const url = out.toDataURL("image/png");
+  el("shotImg").src = url;
+  el("shotDl").href = url;
+  el("shot").hidden = false;
+  el("shotClose").focus({ preventScroll: true });
+  sfx("unlock");
+});
+el("shotClose").addEventListener("click", () => { el("shot").hidden = true; });
+el("shot").addEventListener("click", e => { if (e.target === el("shot")) el("shot").hidden = true; });
+addEventListener("keydown", e => { if (e.key === "Escape") el("shot").hidden = true; });
 
 /* 只在載入時跑一次；跑完整個流程後會停在最後一頁，重新整理才會從頭開始 */
 function reset() {
