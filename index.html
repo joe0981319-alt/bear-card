@@ -600,7 +600,8 @@
     <img id="shotImg" alt="賀卡畫面截圖" />
     <p class="shot-tip" id="shotTip">長按圖片可以存到相簿</p>
     <div class="row">
-      <a class="btn" id="shotDl" download="bear-card.png" href="#">下載圖片</a>
+      <button class="btn" id="shotShare" type="button" hidden>存到相簿</button>
+      <a class="btn ghost" id="shotDl" download="bear-card.png" href="#">下載圖片</a>
       <button class="btn ghost" id="shotClose" type="button">關閉</button>
     </div>
   </div>
@@ -2831,15 +2832,55 @@ function buildShot() {
   return out;
 }
 
+/* 手機要進相簿只能走系統分享選單（下載只會進「檔案」），
+   所以有支援就顯示「存到相簿」，沒有就退回下載＋長按 */
+let shotBlob = null, shotUrl = null;
+const SHOT_NAME = "bear-card.png";
+
+function canShareShot() {
+  if (!shotBlob || !navigator.canShare || typeof File !== "function") return false;
+  try {
+    return navigator.canShare({ files: [new File([shotBlob], SHOT_NAME, { type: "image/png" })] });
+  } catch (e) { return false; }
+}
+
+function updateShotButtons() {
+  const ok = canShareShot();
+  el("shotShare").hidden = !ok;
+  el("shotDl").className = ok ? "btn ghost" : "btn";
+  el("shotTip").textContent = ok
+    ? "按「存到相簿」再選「儲存影像」就會進相簿；長按圖片也可以存"
+    : "長按圖片可以存到相簿，或按「下載圖片」";
+}
+
 el("shotBtn").addEventListener("click", () => {
   const out = buildShot();
   if (!out) return;
-  const url = out.toDataURL("image/png");
-  el("shotImg").src = url;
-  el("shotDl").href = url;
+  el("shotImg").src = out.toDataURL("image/png");   // 長按存圖用 data URL 最保險
   el("shot").hidden = false;
   el("shotClose").focus({ preventScroll: true });
   sfx("unlock");
+
+  shotBlob = null;
+  el("shotShare").hidden = true;
+  el("shotTip").textContent = "圖片準備中……";
+  out.toBlob(b => {
+    shotBlob = b;
+    if (shotUrl) URL.revokeObjectURL(shotUrl);
+    shotUrl = URL.createObjectURL(b);              // blob 連結的下載相容性比 data URL 好
+    el("shotDl").href = shotUrl;
+    updateShotButtons();
+  }, "image/png");
+});
+
+el("shotShare").addEventListener("click", async () => {
+  if (!shotBlob) return;
+  try {
+    await navigator.share({
+      files: [new File([shotBlob], SHOT_NAME, { type: "image/png" })],
+      title: "大棕熊的生日卡片"
+    });
+  } catch (e) { /* 使用者取消，不用處理 */ }
 });
 el("shotClose").addEventListener("click", () => { el("shot").hidden = true; });
 el("shot").addEventListener("click", e => { if (e.target === el("shot")) el("shot").hidden = true; });
